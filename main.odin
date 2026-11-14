@@ -76,6 +76,9 @@ main :: proc() {
 	scene_init(&scene)
 	defer scene_destroy(&scene)
 
+	scene.clear_color = {0.3, 0.6, 1.0, 1.0}
+	scene.ambient_light.color = {0.3, 0.6, 1.0}
+
 	append(
 		&scene.directional_lights,
 		{direction = {0.4, -1.0, 0.2}, color = {1.0, 1.0, 1.0}, illuminance = 2.0},

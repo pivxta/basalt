@@ -7,7 +7,6 @@ Surface :: struct {
 	surface: vk.SurfaceKHR,
 }
 
-@(private = "file")
 Surface_Capabilities :: struct {
 	caps:          vk.SurfaceCapabilitiesKHR,
 	formats:       []vk.SurfaceFormatKHR,
@@ -22,11 +21,17 @@ surface_init :: proc(surface: ^Surface, instance: Instance, window: ^Window) -> 
 	return nil
 }
 
-surface_destroy :: proc(surface: ^Surface, instance: Instance, device: Device) {
+surface_destroy :: proc(surface: ^Surface, instance: Instance) {
 	if surface.surface != 0 {
 		vk.DestroySurfaceKHR(instance.handle, surface.surface, nil)
 	}
 	surface^ = {}
+}
+
+@(require_results)
+surface_is_ready :: proc(surface: Surface) -> bool {
+	width, height := window_get_framebuffer_size(surface.window)
+	return width != 0 || height != 0
 }
 
 @(require_results)

@@ -280,7 +280,7 @@ renderer_destroy :: proc(r: ^Renderer) {
 	upload_queue_destroy(&r.upload_queue, r.device)
 	frame_ring_destroy(&r.frame_ring, r.device)
 	swapchain_destroy(&r.swapchain, r.device)
-	surface_destroy(&r.surface, r.instance, r.device)
+	surface_destroy(&r.surface, r.instance)
 	device_destroy(&r.device)
 	instance_destroy(&r.instance)
 	virtual.arena_destroy(&r.arena)
@@ -502,8 +502,12 @@ forward_select :: proc(
 
 @(require_results)
 renderer_draw :: proc(renderer: ^Renderer, scene: Scene) -> Renderer_Error {
-	free_all(virtual.arena_allocator(&renderer.arena))
+	if !surface_is_ready(renderer.surface) {
+		return nil
+	}
+
 	context.temp_allocator = virtual.arena_allocator(&renderer.arena)
+	free_all(context.temp_allocator)
 	textures_reconfigure_dirty_samplers(&renderer.textures, renderer.device) or_return
 
 	new_variants := materials_take_new_variants(&renderer.materials)

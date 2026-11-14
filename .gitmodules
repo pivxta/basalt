@@ -4,6 +4,3 @@
 [submodule "third_party/mikktspace"]
 	path = third_party/mikktspace
 	url = https://github.com/wrapperup/odin-mikktspace
-[submodule "third_party/slang"]
-	path = third_party/slang
-	url = https://codeberg.org/GeleArthur/odin-slang

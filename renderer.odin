@@ -18,6 +18,7 @@ Renderer :: struct {
 	instance:       Instance,
 	device:         Device,
 	surface:        Surface,
+	swapchain:      Swapchain,
 	frame_ring:     Frame_Ring,
 	upload_queue:   Upload_Queue,
 	mipgen_queue:   Mipgen_Queue,
@@ -43,7 +44,7 @@ Renderer_Draw_Error :: enum {
 Renderer_Error :: union #shared_nil {
 	Instance_Error,
 	Device_Error,
-	Surface_Error,
+	Swapchain_Error,
 	Frame_Ring_Error,
 	Materials_Create_Error,
 	Renderer_Draw_Error,
@@ -217,12 +218,12 @@ setup_renderer :: proc(renderer: ^Renderer) -> Renderer_Error {
 		resolve = resolve_unlit,
 	)
 
-	surface_configure(&renderer.surface, renderer.device) or_return
+	swapchain_configure(&renderer.swapchain, renderer.device, renderer.surface) or_return
 	create_depth_texture(renderer) or_return
 
 	renderer.forward_target = pipelines_add_target(
 		&renderer.pipelines,
-		{color = {renderer.surface.format}, depth = .D32_SFLOAT, samples = ._1},
+		{color = {renderer.swapchain.format}, depth = .D32_SFLOAT, samples = ._1},
 	)
 
 	renderer.forward_pass = passes_add_kind(
@@ -278,6 +279,7 @@ renderer_destroy :: proc(r: ^Renderer) {
 	mipgen_queue_destroy(&r.mipgen_queue)
 	upload_queue_destroy(&r.upload_queue, r.device)
 	frame_ring_destroy(&r.frame_ring, r.device)
+	swapchain_destroy(&r.swapchain, r.device)
 	surface_destroy(&r.surface, r.instance, r.device)
 	device_destroy(&r.device)
 	instance_destroy(&r.instance)
@@ -524,8 +526,8 @@ renderer_draw :: proc(renderer: ^Renderer, scene: Scene) -> Renderer_Error {
 		return Renderer_Draw_Error.Out_Of_Scratch_Memory
 	}
 
-	surface_texture, acquire_result := surface_acquire_texture(
-		renderer.surface,
+	swapchain_texture, acquire_result := swapchain_acquire_texture(
+		renderer.swapchain,
 		renderer.device,
 		frame_context.image_available,
 	)
@@ -547,7 +549,7 @@ renderer_draw :: proc(renderer: ^Renderer, scene: Scene) -> Renderer_Error {
 
 	upload_queue_record_commands(&renderer.upload_queue, frame_context.command_buffer)
 	mipgen_queue_record_commands(&renderer.mipgen_queue, frame_context.command_buffer)
-	record_commands(renderer, frame_context.command_buffer, frame_data, surface_texture)
+	record_commands(renderer, frame_context.command_buffer, frame_data, swapchain_texture)
 
 	materials_destroy_pending(&renderer.materials, frame_context.finished_timeline_value)
 	meshes_destroy_pending(&renderer.meshes, frame_context.finished_timeline_value)
@@ -564,10 +566,10 @@ renderer_draw :: proc(renderer: ^Renderer, scene: Scene) -> Renderer_Error {
 		&renderer.frame_ring,
 		renderer.device,
 		frame_context,
-		surface_texture.presentable,
+		swapchain_texture.presentable,
 	) or_return
 
-	result := surface_present(renderer.surface, renderer.device, surface_texture)
+	result := swapchain_present(renderer.swapchain, renderer.device, swapchain_texture)
 	#partial switch result {
 	case .SUCCESS:
 	case .SUBOPTIMAL_KHR, .ERROR_OUT_OF_DATE_KHR:
@@ -588,9 +590,9 @@ renderer_draw :: proc(renderer: ^Renderer, scene: Scene) -> Renderer_Error {
 reconfigure_targets :: proc(r: ^Renderer) -> Renderer_Error {
 	vk.DeviceWaitIdle(r.device.logical) or_return
 
-	old_format := r.surface.format
-	surface_configure(&r.surface, r.device) or_return
-	new_format := r.surface.format
+	old_format := r.swapchain.format
+	swapchain_configure(&r.swapchain, r.device, r.surface) or_return
+	new_format := r.swapchain.format
 	if old_format != new_format {
 		pipelines_set_target(
 			&r.pipelines,
@@ -598,7 +600,7 @@ reconfigure_targets :: proc(r: ^Renderer) -> Renderer_Error {
 			r.frame_ring,
 			r.shaders,
 			r.forward_target,
-			{color = {r.surface.format}, depth = .D32_SFLOAT, samples = ._1},
+			{color = {r.swapchain.format}, depth = .D32_SFLOAT, samples = ._1},
 		) or_return
 	}
 
@@ -615,8 +617,8 @@ write_frame_data :: proc(
 	data: Frame_Data,
 	ok: bool,
 ) {
-	width := int(renderer.surface.extent.width)
-	height := int(renderer.surface.extent.height)
+	width := int(renderer.swapchain.extent.width)
+	height := int(renderer.swapchain.extent.height)
 	view := View_Data {
 		world_to_clip = get_world_to_clip_matrix(scene.camera, width, height),
 		position      = scene.camera.transform.translation,
@@ -806,7 +808,7 @@ record_commands :: proc(
 	renderer: ^Renderer,
 	commands: vk.CommandBuffer,
 	frame_data: Frame_Data,
-	surface: Surface_Texture,
+	swapchain_texture: Swapchain_Texture,
 ) {
 	subresource_range := vk.ImageSubresourceRange {
 		aspectMask     = {.COLOR},
@@ -838,7 +840,7 @@ record_commands :: proc(
 	record_image_barrier(
 		commands,
 		{
-			image = surface.texture.handle,
+			image = swapchain_texture.texture.handle,
 			srcStageMask = {.COLOR_ATTACHMENT_OUTPUT},
 			srcAccessMask = {},
 			dstStageMask = {.COLOR_ATTACHMENT_OUTPUT},
@@ -848,11 +850,11 @@ record_commands :: proc(
 			subresourceRange = subresource_range,
 		},
 	)
-	record_draw_commands(renderer, commands, frame_data, surface)
+	record_draw_commands(renderer, commands, frame_data, swapchain_texture)
 	record_image_barrier(
 		commands,
 		{
-			image = surface.texture.handle,
+			image = swapchain_texture.texture.handle,
 			srcStageMask = {.COLOR_ATTACHMENT_OUTPUT},
 			srcAccessMask = {.COLOR_ATTACHMENT_WRITE},
 			dstStageMask = {},
@@ -868,11 +870,11 @@ record_draw_commands :: proc(
 	renderer: ^Renderer,
 	commands: vk.CommandBuffer,
 	frame_data: Frame_Data,
-	surface: Surface_Texture,
+	swapchain_texture: Swapchain_Texture,
 ) {
 	color_attachment_info := vk.RenderingAttachmentInfo {
 		sType = .RENDERING_ATTACHMENT_INFO,
-		imageView = surface.texture.full_view.handle,
+		imageView = swapchain_texture.texture.full_view.handle,
 		imageLayout = .COLOR_ATTACHMENT_OPTIMAL,
 		storeOp = .STORE,
 		loadOp = .CLEAR,
@@ -888,7 +890,7 @@ record_draw_commands :: proc(
 	}
 	render_info := vk.RenderingInfo {
 		sType = .RENDERING_INFO,
-		renderArea = {offset = {0, 0}, extent = renderer.surface.extent},
+		renderArea = {offset = {0, 0}, extent = renderer.swapchain.extent},
 		layerCount = 1,
 		colorAttachmentCount = 1,
 		pColorAttachments = &color_attachment_info,
@@ -900,8 +902,8 @@ record_draw_commands :: proc(
 	viewport := vk.Viewport {
 		x        = 0.0,
 		y        = 0.0,
-		width    = f32(renderer.surface.extent.width),
-		height   = f32(renderer.surface.extent.height),
+		width    = f32(renderer.swapchain.extent.width),
+		height   = f32(renderer.swapchain.extent.height),
 		minDepth = 0.0,
 		maxDepth = 1.0,
 	}
@@ -909,7 +911,7 @@ record_draw_commands :: proc(
 
 	scissor := vk.Rect2D {
 		offset = {0, 0},
-		extent = renderer.surface.extent,
+		extent = renderer.swapchain.extent,
 	}
 	vk.CmdSetScissor(commands, 0, 1, &scissor)
 
@@ -998,7 +1000,7 @@ record_image_barrier :: proc(cmd: vk.CommandBuffer, barrier: vk.ImageMemoryBarri
 create_depth_texture :: proc(r: ^Renderer) -> Texture_Error {
 	texture_destroy(&r.depth_texture, r.device)
 
-	depth_extent := vk.Extent3D{r.surface.extent.width, r.surface.extent.height, 1}
+	depth_extent := vk.Extent3D{r.swapchain.extent.width, r.swapchain.extent.height, 1}
 
 	texture_init(
 		&r.depth_texture,

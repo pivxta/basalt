@@ -5,11 +5,7 @@ import "core:fmt"
 import "core:os"
 import "core:path/filepath"
 import "core:strings"
-import "core:time"
 
-SHADER_SRC :: "shaders"
-SHADER_ENTRIES :: "shaders/entries"
-SHADER_OUT :: "shaders/compiled"
 BUILD_OUT :: "build"
 PROGRAM_NAME :: "render"
 
@@ -34,7 +30,6 @@ main :: proc() {
 	flags.parse_or_exit(&options, os.args, .Odin)
 
 	build_vma()
-	compile_shaders()
 	build_program(options)
 }
 
@@ -92,54 +87,6 @@ vma_is_built :: proc() -> bool {
 	return false
 }
 
-compile_shaders :: proc() {
-	_ = os.make_directory_all(SHADER_OUT)
-
-	files, err := os.read_all_directory_by_path(SHADER_ENTRIES, context.temp_allocator)
-	if err != nil {
-		fmt.eprintfln("Failed to read directory '%s': %v", SHADER_ENTRIES, err)
-		return
-	}
-
-	// Any module anywhere under shaders/ may be imported by any entry, so a change
-	// to one of them rebuilds every entry. Coarse, but never stale.
-	modules_time := newest_modification_time(SHADER_SRC)
-
-	for file in files {
-		if file.type == .Directory || filepath.ext(file.name) != ".slang" {
-			continue
-		}
-
-		src := fmt.tprintf("%s/%s", SHADER_ENTRIES, file.name)
-		dst := fmt.tprintf("%s/%s.spv", SHADER_OUT, filepath.stem(file.name))
-
-		if !needs_rebuild(src, dst, modules_time) {
-			continue
-		}
-
-		fmt.eprintfln("Compiling %s", src)
-
-		run(
-			{
-				"slangc",
-				src,
-				"-I",
-				SHADER_SRC,
-				"-target",
-				"spirv",
-				"-profile",
-				"spirv_1_4",
-				"-emit-spirv-directly",
-				"-fvk-use-scalar-layout",
-				"-fvk-use-entrypoint-name",
-				"-matrix-layout-column-major",
-				"-o",
-				dst,
-			},
-		)
-	}
-}
-
 build_program :: proc(options: Options) {
 	mode := "release" if options.release else "debug"
 	out_dir := fmt.tprintf("%s/%s", BUILD_OUT, mode)
@@ -148,10 +95,11 @@ build_program :: proc(options: Options) {
 	args := make([dynamic]string, context.temp_allocator)
 	append(&args, "odin", "build", ".")
 	append(&args, "-o:speed" if options.release else "-debug")
-	append_toggle_define(&args, "ENABLE_VALIDATION", options.validation)
-	append_toggle_define(&args, "ENABLE_SYNC_VALIDATION", options.sync_validation)
 	append(&args, "-vet", "-strict-style", "-disallow-do", "-warnings-as-errors")
 	append(&args, fmt.tprintf("-out:%s/%s", out_dir, PROGRAM_NAME))
+	append_toggle_define(&args, "ENABLE_VALIDATION", options.validation)
+	append_toggle_define(&args, "ENABLE_SYNC_VALIDATION", options.sync_validation)
+	append_vulkan_sdk_link_flags(&args)
 
 	fmt.eprintfln(
 		"Building %s (%s, validation: %v, sync validation: %v)",
@@ -163,6 +111,22 @@ build_program :: proc(options: Options) {
 	run(args[:])
 }
 
+append_vulkan_sdk_link_flags :: proc(args: ^[dynamic]string) {
+	sdk, found := os.lookup_env("VULKAN_SDK", context.temp_allocator)
+	if !found || sdk == "" {
+		fmt.eprintln("VULKAN_SDK is not set: please install the Vulkan SDK or run its setup script")
+		os.exit(1)
+	}
+
+	when ODIN_OS == .Windows {
+		lib_dir, _ := filepath.join({sdk, "Lib"}, context.temp_allocator)
+		append(args, fmt.tprintf("-extra-linker-flags:/LIBPATH:\"%s\"", lib_dir))
+	} else {
+		lib_dir, _ := filepath.join({sdk, "lib"}, context.temp_allocator)
+		append(args, fmt.tprintf("-extra-linker-flags:-L%s -Wl,-rpath,%s", lib_dir, lib_dir))
+	}
+}
+
 append_toggle_define :: proc(args: ^[dynamic]string, name: string, toggle: Toggle) {
 	switch toggle {
 	case .auto:
@@ -171,40 +135,6 @@ append_toggle_define :: proc(args: ^[dynamic]string, name: string, toggle: Toggl
 	case .off:
 		append(args, fmt.tprintf("-define:%s=false", name))
 	}
-}
-
-newest_modification_time :: proc(dir: string) -> (newest: time.Time) {
-	files, err := os.read_all_directory_by_path(dir, context.temp_allocator)
-	if err != nil {
-		return
-	}
-	for file in files {
-		path := fmt.tprintf("%s/%s", dir, file.name)
-
-		if file.type == .Directory {
-			if t := newest_modification_time(path); time.diff(newest, t) > 0 {
-				newest = t
-			}
-			continue
-		}
-
-		if filepath.ext(file.name) != ".slang" {
-			continue
-		}
-		if t, terr := os.modification_time_by_path(path); terr == nil && time.diff(newest, t) > 0 {
-			newest = t
-		}
-	}
-	return
-}
-
-needs_rebuild :: proc(src, dst: string, deps_time: time.Time) -> bool {
-	src_time, err1 := os.modification_time_by_path(src)
-	dst_time, err2 := os.modification_time_by_path(dst)
-	if err1 != nil || err2 != nil {
-		return true
-	}
-	return time.diff(dst_time, src_time) > 0 || time.diff(dst_time, deps_time) > 0
 }
 
 run :: proc(command: []string, working_dir := "") {

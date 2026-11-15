@@ -1,11 +1,11 @@
 package main
 @(require) import "core:fmt"
-import "core:log"
-import "core:math"
-import "core:math/linalg"
+@(require) import "core:log"
+@(require) import "core:math"
+@(require) import "core:math/linalg"
 @(require) import "core:mem"
-import "core:os"
-import "core:time"
+@(require) import "core:os"
+@(require) import "core:time"
 
 Controls :: struct {
 	walk_forward:      Key,
@@ -211,7 +211,6 @@ main :: proc() {
 
 		free_all(context.temp_allocator)
 	}
-
 }
 
 look_around :: proc(flycam: ^Fly_Camera, window: ^Window, controls: Controls) {

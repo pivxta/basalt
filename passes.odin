@@ -12,10 +12,11 @@ Passes :: struct {
 Pass_Kind_Id :: distinct u32
 
 Pass_Select_Proc :: #type proc(
+	device: Device,
 	shaders: ^Shaders,
 	props: Material_Properties,
+	identifiers: Material_Identifiers,
 	base: Raster_State,
-	type_name: string,
 ) -> Maybe(Pass_Selection)
 
 Pass_Kind :: struct {
@@ -97,8 +98,8 @@ select_pipeline :: proc(
 	pipelines := passes.ctx.pipelines
 	materials := passes.ctx.materials
 	variant := materials_get_variant(materials^, variant_id)
-	type_name := materials_get_type_name(materials^, variant.type)
-	selection, ok := kind.select(shaders, variant.props, kind.base_state, type_name).?
+	identifiers := materials_get_identifiers(materials^, variant.type)
+	selection, ok := kind.select(device, shaders, variant.props, identifiers, kind.base_state).?
 	if !ok {
 		return nil
 	}
@@ -118,7 +119,7 @@ select_pipeline :: proc(
 		log.errorf(
 			"Pass '%s': pipeline for material type '%s' failed: %v",
 			kind.name,
-			type_name,
+			identifiers.type_name,
 			result,
 		)
 		return nil

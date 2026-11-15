@@ -36,6 +36,11 @@ Material_Info :: struct {
 	address: Device_Address,
 }
 
+Material_Identifiers :: struct {
+	type_name:   string,
+	module_name: string,
+}
+
 Materials_Create_Error :: union #shared_nil {
 	Buffer_Error,
 	Material_Error,
@@ -46,6 +51,7 @@ Material_Type_Id :: distinct u32
 @(private = "file")
 Material_Type :: struct {
 	name:         string,
+	module_name:  string,
 	params_type:  typeid,
 	data_size:    int,
 	data_align:   int,
@@ -140,6 +146,7 @@ materials_init :: proc(
 materials_destroy :: proc(materials: ^Materials, device: Device) {
 	for type in materials.types {
 		delete(type.name, materials.allocator)
+		delete(type.module_name, materials.allocator)
 	}
 
 	for dependents in materials.dependents {
@@ -514,7 +521,8 @@ collect_textures :: proc(out: ^[dynamic]Texture_Handle, value: any) {
 materials_register_type :: proc(
 	materials: ^Materials,
 	$Params, $Data: typeid,
-	name: string,
+	type_name: string,
+	module_name: string,
 	resolve: proc(textures: ^Textures, params: Params) -> Data,
 ) -> Material_Type_Id {
 	assert(Params not_in materials.type_by_params, "Material type already registered")
@@ -523,7 +531,8 @@ materials_register_type :: proc(
 	append(
 		&materials.types,
 		{
-			name = strings.clone(name, materials.allocator),
+			name = strings.clone(type_name, materials.allocator),
+			module_name = strings.clone(module_name, materials.allocator),
 			params_type = Params,
 			data_size = size_of(Data),
 			data_align = max(align_of(Data), 16),
@@ -588,13 +597,19 @@ materials_get_info :: proc(
 	return {}, false
 }
 
-materials_is_valid :: proc(materials: ^Materials, handle: Material_Handle) -> bool {
-	return handle_map.is_valid(&materials.handle_map, handle)
+materials_get_identifiers :: proc(
+	materials: Materials, 
+	id: Material_Type_Id,
+) -> Material_Identifiers {
+	assert(int(id) < len(materials.types))
+	return {
+		type_name = materials.types[id].name,
+		module_name = materials.types[id].module_name,
+	}
 }
 
-materials_get_type_name :: proc(materials: Materials, id: Material_Type_Id) -> string {
-	assert(int(id) < len(materials.types))
-	return materials.types[id].name
+materials_is_valid :: proc(materials: ^Materials, handle: Material_Handle) -> bool {
+	return handle_map.is_valid(&materials.handle_map, handle)
 }
 
 materials_get_variant_count :: proc(materials: Materials) -> int {

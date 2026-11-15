@@ -48,6 +48,7 @@ Renderer_Error :: union #shared_nil {
 	Frame_Ring_Error,
 	Materials_Create_Error,
 	Renderer_Draw_Error,
+	Slang_Error,
 	Texture_Error,
 	Buffer_Error,
 	runtime.Allocator_Error,
@@ -193,7 +194,7 @@ init_renderer :: proc(renderer: ^Renderer, window: ^Window) -> Renderer_Error {
 		push_constant_ranges[:],
 	) or_return
 
-	shaders_init(&renderer.shaders)
+	shaders_init(&renderer.shaders, { "shaders/" }) or_return
 	passes_init(&renderer.passes, &renderer.shaders, &renderer.pipelines, &renderer.materials)
 
 	return setup_renderer(renderer)
@@ -201,20 +202,20 @@ init_renderer :: proc(renderer: ^Renderer, window: ^Window) -> Renderer_Error {
 
 @(private = "file")
 setup_renderer :: proc(renderer: ^Renderer) -> Renderer_Error {
-	MODULE_SPIRV :: #load("shaders/compiled/forward.spv", []u32)
-	shaders_load_module(&renderer.shaders, renderer.device, "Forward", MODULE_SPIRV) or_return
 	renderer_register_material_type(
 		renderer,
 		Lambert_Material,
 		Lambert_Material_Data,
-		name = "LambertMaterial",
+		type_name = "LambertMaterial",
+		module_name = "materials/lambert",
 		resolve = resolve_lambert,
 	)
 	renderer_register_material_type(
 		renderer,
 		Unlit_Material,
 		Unlit_Material_Data,
-		name = "UnlitMaterial",
+		type_name = "UnlitMaterial",
+		module_name = "materials/unlit",
 		resolve = resolve_unlit,
 	)
 
@@ -470,23 +471,43 @@ renderer_get_material :: proc(
 renderer_register_material_type :: proc(
 	renderer: ^Renderer,
 	$Params, $Data: typeid,
-	name: string,
+	type_name: string,
+	module_name: string,
 	resolve: proc(_: ^Textures, _: Params) -> Data,
 ) -> Material_Type_Id {
 	assert(renderer != nil)
-	return materials_register_type(&renderer.materials, Params, Data, name, resolve)
+	return materials_register_type(&renderer.materials, Params, Data, type_name, module_name, resolve)
 }
 
 @(private = "file")
 forward_select :: proc(
+	device: Device,
 	shaders: ^Shaders,
 	props: Material_Properties,
+	idents: Material_Identifiers,
 	base: Raster_State,
-	type_name: string,
 ) -> Maybe(Pass_Selection) {
-	vertex, vertex_ok := shaders_get_program(shaders, "Forward", "VSMain", .VERTEX)
-	fragment, fragment_ok := shaders_get_program(shaders, "Forward", "FSMain", .FRAGMENT)
-	if !vertex_ok || !fragment_ok {
+	vertex, vertex_err := shaders_get_program(
+		shaders, 
+		device, 
+		module = "entries/forward.slang", 
+		entry = "VSMain", 
+		stage = .VERTEX,
+	)
+	fragment, fragment_err := shaders_get_program(
+		shaders, 
+		device, 
+		module = "entries/forward.slang", 
+		entry = "FSMain", 
+		stage = .FRAGMENT,
+		specialization_args = {
+			Type_Specialization_Arg {
+				type_name = idents.type_name,
+				module_name = idents.module_name,
+			},
+		},
+	)
+	if vertex_err != nil || fragment_err != nil {
 		return nil
 	}
 

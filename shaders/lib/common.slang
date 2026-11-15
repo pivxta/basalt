@@ -23,7 +23,6 @@ public struct View {
 public struct Instance {
     public float3x4  objectToWorld;
     public uint64_t  materialAddress;
-    public uint      materialType;
 }
 
 

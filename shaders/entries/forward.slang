@@ -2,8 +2,6 @@ import lib.common;
 import lib.vertex;
 import lib.material;
 import passes.forward;
-import materials.unlit;
-import materials.lambert;
 
 [shader("vertex")]
 FragmentInput VSMain(

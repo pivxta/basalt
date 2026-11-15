@@ -69,7 +69,6 @@ Vertex_Data :: struct {
 Instance_Data :: struct {
 	object_to_world:  matrix[3, 4]f32,
 	material_address: Device_Address,
-	material_type:    Material_Type_Id,
 }
 
 Point_Light_Data :: struct {
@@ -497,9 +496,10 @@ forward_select :: proc(
 	fragment, fragment_err := shaders_get_program(
 		shaders, 
 		device, 
+		stage = .FRAGMENT,
 		module = "entries/forward.slang", 
 		entry = "FSMain", 
-		stage = .FRAGMENT,
+		specialization = idents.type_name,
 		specialization_args = {
 			Type_Specialization_Arg {
 				type_name = idents.type_name,
@@ -820,7 +820,6 @@ write_frame_data :: proc(
 		material, _ := materials_get_info(&renderer.materials, object.material)
 		data.instances.data[i] = Instance_Data {
 			object_to_world  = affine_to_matrix3x4(object.transform),
-			material_type    = material.type,
 			material_address = material.address,
 		}
 	}

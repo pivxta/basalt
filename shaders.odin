@@ -67,17 +67,19 @@ get_specialization_arg_module_name :: proc(spec_arg: Specialization_Arg) -> stri
 
 @(private = "file")
 Shader_Program_Key :: struct {
-	module_name: string,
-	entry_name:  string,
-	stage:       vk.ShaderStageFlag,
+	module_name:    string,
+	entry_name:     string,
+	specialization: string,
+	stage:          vk.ShaderStageFlag,
 }
 
 @(private = "file")
 Shader_Program :: struct {
-	module_name:  string,
-	entry_name:   cstring,
-	stage:        vk.ShaderStageFlag,
-	module:       vk.ShaderModule,
+	module_name:    string,
+	entry_name:     cstring,
+	specialization: string,
+	stage:          vk.ShaderStageFlag,
+	module:         vk.ShaderModule,
 }
 
 @(require_results)
@@ -140,6 +142,7 @@ shaders_destroy_no_device :: proc(shaders: ^Shaders) {
 
 	for key, _ in shaders.programs_by_key {
 		delete(key.entry_name, shaders.allocator)
+		delete(key.specialization, shaders.allocator)
 	}
 
 	delete(shaders.search_paths, shaders.allocator)
@@ -152,12 +155,13 @@ shaders_destroy_no_device :: proc(shaders: ^Shaders) {
 shaders_get_program :: proc(
 	shaders: ^Shaders,
 	device: Device,
+	stage: vk.ShaderStageFlag,
 	module: string,
 	entry: string,
-	stage: vk.ShaderStageFlag,
+	specialization := "",
 	specialization_args: []Specialization_Arg = nil,
 ) -> (id: Shader_Program_Id, err: Shader_Error) {
-	if program_id, ok := shaders.programs_by_key[{module, entry, stage}]; ok {
+	if program_id, ok := shaders.programs_by_key[{module, entry, specialization, stage}]; ok {
 		return program_id, nil
 	}
 
@@ -171,19 +175,22 @@ shaders_get_program :: proc(
 	vk.CreateShaderModule(device.logical, &new_module_info, nil, &new_module) or_return
 
 	program_id := Shader_Program_Id(len(shaders.programs))
+	spec_name := strings.clone(specialization, shaders.allocator)
 	module_name := strings.clone(module, shaders.allocator)
 	entry_name := strings.clone(entry, shaders.allocator)
 	entry_cname := strings.clone_to_cstring(entry, shaders.allocator)
 	program_key := Shader_Program_Key {
-		module_name = module_name,
-		entry_name  = entry_name,
-		stage       = stage,
+		module_name    = module_name,
+		entry_name     = entry_name,
+		specialization = spec_name,
+		stage          = stage,
 	}
 	append(
 		&shaders.programs,
 		{
 			module_name = module_name, 
 			entry_name = entry_cname, 
+			specialization = spec_name,
 			stage = stage,
 			module = new_module,
 		},

@@ -489,9 +489,9 @@ forward_select :: proc(
 	vertex, vertex_err := shaders_get_program(
 		shaders, 
 		device, 
+		stage = .VERTEX,
 		module = "entries/forward.slang", 
 		entry = "VSMain", 
-		stage = .VERTEX,
 	)
 	fragment, fragment_err := shaders_get_program(
 		shaders, 
@@ -499,7 +499,6 @@ forward_select :: proc(
 		stage = .FRAGMENT,
 		module = "entries/forward.slang", 
 		entry = "FSMain", 
-		specialization = idents.type_name,
 		specialization_args = {
 			Type_Specialization_Arg {
 				type_name = idents.type_name,

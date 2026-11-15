@@ -158,9 +158,9 @@ shaders_get_program :: proc(
 	stage: vk.ShaderStageFlag,
 	module: string,
 	entry: string,
-	specialization := "",
 	specialization_args: []Specialization_Arg = nil,
 ) -> (id: Shader_Program_Id, err: Shader_Error) {
+	specialization := get_specialization_string(specialization_args, context.temp_allocator)
 	if program_id, ok := shaders.programs_by_key[{module, entry, specialization, stage}]; ok {
 		return program_id, nil
 	}
@@ -199,6 +199,23 @@ shaders_get_program :: proc(
 	return program_id, nil
 }
 
+@(private = "file", require_results)
+get_specialization_string :: proc(
+	specialization_args: []Specialization_Arg,
+	allocator := context.allocator,
+) -> string {
+	builder := strings.builder_make(allocator)
+	for specialization_arg in specialization_args {
+		switch arg in specialization_arg {
+		case Type_Specialization_Arg:
+			fmt.sbprintf(&builder, "@@Type@%v@%v", arg.type_name, arg.module_name)
+		case Expr_Specialization_Arg:
+			fmt.sbprintf(&builder, "@@Expr@%v@%v", arg.expression, arg.module_name)
+		}
+	}
+	return strings.to_string(builder)
+}
+
 @(require_results)
 shaders_get_stage_info :: proc(
 	shaders: Shaders,
@@ -216,7 +233,7 @@ shaders_get_stage_info :: proc(
 	}
 }
 
-@(private = "file")
+@(private = "file", require_results)
 load_shader_spirv :: proc(
 	session: ^slang.Session, 
 	module_name: string,
@@ -439,7 +456,7 @@ log_diagnostics :: proc(
 	}
 }
 
-@(private = "file")
+@(private = "file", require_results)
 create_slang_session :: proc(
 	global_session: ^slang.Global_Session,
 	search_paths: []string,

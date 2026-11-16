@@ -7,7 +7,6 @@ import "core:path/filepath"
 import "core:strings"
 
 BUILD_OUT :: "build"
-PROGRAM_NAME :: "render"
 
 VMA_DIR :: "third_party/vma"
 VMA_VK_VERSION :: "3"
@@ -20,6 +19,8 @@ Toggle :: enum {
 }
 
 Options :: struct {
+	run:             bool `usage:"Run the built program"`,
+	example:         string `usage:"Example to build"`,
 	release:         bool `usage:"Optimized build (-o:speed) instead of a debug build."`,
 	validation:      Toggle `usage:"Vulkan validation layer: auto (on in debug), on, off."`,
 	sync_validation: Toggle `usage:"Synchronization validation: auto (on in debug), on, off."`,
@@ -88,22 +89,41 @@ vma_is_built :: proc() -> bool {
 }
 
 build_program :: proc(options: Options) {
+	if options.run && options.example == "" {
+		fmt.eprintln("Please provide an example to be ran")
+		os.exit(1)
+	}
+
+	if !options.run && options.example == "" {
+		os.exit(0)
+	}
+
+	example_path := fmt.tprintf("./examples/%v", options.example)
+	if options.example != "" && !os.exists(example_path) {
+		fmt.eprintfln("Example '%v' does not exist", options.example)
+		os.exit(1)
+	}
+
 	mode := "release" if options.release else "debug"
 	out_dir := fmt.tprintf("%s/%s", BUILD_OUT, mode)
 	_ = os.make_directory_all(out_dir)
 
 	args := make([dynamic]string, context.temp_allocator)
-	append(&args, "odin", "build", ".")
+	if options.run {
+		append(&args, "odin", "run", example_path)
+	} else {
+		append(&args, "odin", "build", example_path)
+	}
 	append(&args, "-o:speed" if options.release else "-debug")
 	append(&args, "-vet", "-strict-style", "-disallow-do", "-warnings-as-errors")
-	append(&args, fmt.tprintf("-out:%s/%s", out_dir, PROGRAM_NAME))
+	append(&args, fmt.tprintf("-out:%s/%s", out_dir, options.example))
 	append_toggle_define(&args, "ENABLE_VALIDATION", options.validation)
 	append_toggle_define(&args, "ENABLE_SYNC_VALIDATION", options.sync_validation)
 	append_vulkan_sdk_link_flags(&args)
 
 	fmt.eprintfln(
-		"Building %s (%s, validation: %v, sync validation: %v)",
-		PROGRAM_NAME,
+		"Building example '%s' (%s, validation: %v, sync validation: %v)",
+		options.example,
 		mode,
 		options.validation,
 		options.sync_validation,

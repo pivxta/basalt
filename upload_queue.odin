@@ -190,7 +190,7 @@ upload_subbuffer :: proc(
 	frame_ring: Frame_Ring,
 	buffer: Pool_Subbuffer($T),
 	values: []T,
-	usage: Maybe(Resource_Usage) = nil,
+	usage: Resource_Usage,
 	offset: Device_Size = 0,
 ) -> (
 	ok: bool,

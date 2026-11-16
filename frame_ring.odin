@@ -221,3 +221,8 @@ frame_submit :: proc(
 	frame_ring.frame_counter += 1
 	return nil
 }
+
+@(require_results)
+get_next_timeline_value :: proc(frame_ring: Frame_Ring) -> u64 {
+	return frame_ring.timeline_value + 1
+}

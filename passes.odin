@@ -45,6 +45,7 @@ passes_init :: proc(
 	materials: ^Materials,
 	allocator := context.allocator,
 ) {
+	passes.allocator = allocator
 	passes.kinds = make([dynamic]Pass_Kind, allocator)
 	passes.table = make([dynamic][dynamic]Maybe(Graphics_Pipeline_Id), allocator)
 	passes.ctx = {shaders, pipelines, materials}

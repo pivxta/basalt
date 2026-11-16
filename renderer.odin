@@ -150,6 +150,8 @@ renderer_create :: proc(window: ^Window) -> (renderer: ^Renderer, err: Renderer_
 	renderer = new(Renderer)
 	if err = init_renderer(renderer, window); err != nil {
 		log.errorf("Failed to create renderer object: %v", err)
+		renderer_destroy(renderer)
+		return nil, err
 	}
 	return renderer, nil
 }
@@ -435,9 +437,10 @@ renderer_replace_material :: proc(
 	handle: Material_Handle,
 	params: $P,
 	props := Material_Properties{},
+	location := #caller_location,
 ) -> Material_Error {
 	assert(renderer != nil)
-	if handle, err := materials_replace(
+	if err := materials_replace(
 		&renderer.materials,
 		renderer.frame_ring,
 		handle,
@@ -463,7 +466,7 @@ renderer_get_material :: proc(
 	Params,
 	Material_Error,
 ) {
-	assert(r != nil)
+	assert(renderer != nil)
 	return materials_get(&renderer.materials, handle, Params)
 }
 
@@ -506,6 +509,7 @@ forward_select :: proc(
 			},
 		},
 	)
+
 	if vertex_err != nil || fragment_err != nil {
 		return nil
 	}

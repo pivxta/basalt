@@ -1,5 +1,5 @@
 package basalt
-import "../bindings/slang"
+import "bindings/slang"
 import "base:runtime"
 import "core:fmt"
 import "core:log"

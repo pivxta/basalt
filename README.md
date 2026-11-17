@@ -67,9 +67,49 @@ Install the macOS Vulkan SDK (which includes MoltenVK) and source its `setup-env
 
 ## Building
 
-From the repository root:
+All commands are always run from the repository root. Arguments after `--` go to the build tool.
+
+### Examples
+
+List the available examples:
 
 ```sh
-odin run -file tools/build.odin                  # debug build
-odin run -file tools/build.odin -- -release      # optimized build
+odin run -file tools/build.odin -- example
+```
+
+Build an example (debug build, validation layers on):
+
+```sh
+odin run -file tools/build.odin -- example flycam
+```
+
+Build and run it:
+
+```sh
+odin run -file tools/build.odin -- example flycam -run
+```
+
+Optimized build, optionally with debug symbols for profiling:
+
+```sh
+odin run -file tools/build.odin -- example flycam -release
+odin run -file tools/build.odin -- example flycam -release -debug_symbols
+```
+
+Validation layers default to on in debug builds and off in release builds. Override them with `on` or `off`:
+
+```sh
+odin run -file tools/build.odin -- example flycam -validation:off
+odin run -file tools/build.odin -- example flycam -release -validation:on -sync_validation:on
+```
+
+Binaries are written to `build/debug/` or `build/release/`.
+
+### Dependencies
+
+VMA is built automatically the first time you build an example. To build it on its own, or to clean it so it's rebuilt from scratch:
+
+```sh
+odin run -file tools/build.odin -- deps
+odin run -file tools/build.odin -- deps -clean
 ```

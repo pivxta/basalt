@@ -1,7 +1,8 @@
+#+private
 package basalt
 import "core:log"
 import "core:slice"
-import "../third_party/vma"
+import "third_party/vma"
 import vk "vendor:vulkan"
 
 Texture :: struct {

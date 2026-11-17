@@ -1,3 +1,4 @@
+#+private
 package basalt
 import "core:container/queue"
 import "core:math/bits"

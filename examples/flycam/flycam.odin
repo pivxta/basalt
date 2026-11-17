@@ -1,5 +1,5 @@
 package flycam_example
-import "../../basalt"
+import basalt "../.."
 @(require) import "core:fmt"
 import "core:log"
 import "core:math"
@@ -33,6 +33,9 @@ Fly_Camera :: struct {
 	zoom_speed:       f32,
 }
 
+ROCKS_ALBEDO_PATH :: "examples/flycam/assets/rocksalbedo.jpg"
+ROCKS_NORMAL_PATH :: "examples/flycam/assets/rocksnormal.jpg"
+
 main :: proc() {
 	context.logger = log.create_console_logger(opt = {.Level, .Terminal_Color})
 	defer log.destroy_console_logger(context.logger)
@@ -59,36 +62,18 @@ main :: proc() {
 		}
 	}
 
-	window, window_err := basalt.window_create(1280, 720, "window")
+	window, input, window_err := basalt.window_create(1280, 720, "window")
 	if window_err != nil {
 		os.exit(1)
 	}
 	defer basalt.window_destroy(window)
+	basalt.window_set_cursor_state(window, .Disabled)
 
 	renderer, renderer_err := basalt.renderer_create(window)
 	if renderer_err != nil {
 		os.exit(1)
 	}
 	defer basalt.renderer_destroy(renderer)
-
-	basalt.window_set_cursor_state(window, .Disabled)
-
-	scene: basalt.Scene
-	basalt.scene_init(&scene)
-	defer basalt.scene_destroy(&scene)
-
-	scene.clear_color = {0.3, 0.6, 1.0, 1.0}
-	scene.ambient_light.color = {0.3, 0.6, 1.0}
-
-	append(
-		&scene.directional_lights,
-		{direction = {0.4, -1.0, 0.2}, color = {1.0, 1.0, 1.0}, illuminance = 2.0},
-	)
-
-	append(
-		&scene.point_lights,
-		{position = {0.0, 0.0, 0.0}, color = {1.0, 1.0, 0.5}, power = 200.0, radius = 15.0},
-	)
 
 	cube := basalt.make_cube(allocator = context.temp_allocator)
 	cube_mesh, cube_err := basalt.renderer_add_mesh(renderer, cube)
@@ -103,7 +88,7 @@ main :: proc() {
 	}
 
 	rocks_texture: basalt.Texture_Handle
-	if image, image_err := basalt.image_load_from_file("assets/rocksalbedo.jpg"); image_err == nil {
+	if image, image_err := basalt.image_load_from_file(ROCKS_ALBEDO_PATH); image_err == nil {
 		rocks_texture, _ = basalt.renderer_add_texture(renderer, image)
 		basalt.image_destroy(&image)
 	} else {
@@ -111,7 +96,7 @@ main :: proc() {
 	}
 
 	rocks_normal_map: basalt.Texture_Handle
-	if image, image_err := basalt.image_load_from_file("assets/rocksnormal.jpg"); image_err == nil {
+	if image, image_err := basalt.image_load_from_file(ROCKS_NORMAL_PATH); image_err == nil {
 		rocks_normal_map, _ = basalt.renderer_add_texture(renderer, image, {colorspace = .Linear})
 		basalt.image_destroy(&image)
 	} else {
@@ -132,6 +117,19 @@ main :: proc() {
 		renderer,
 		basalt.Unlit_Material{color_factor = {1.0, 1.0, 0.5}, sampler = .Linear_Repeat},
 		basalt.Material_Properties{double_sided = true},
+	)
+
+	scene := basalt.scene_make()
+	defer basalt.scene_destroy(&scene)
+	scene.clear_color = {0.3, 0.6, 1.0, 1.0}
+	scene.ambient_light.color = {0.3, 0.6, 1.0}
+	append(
+		&scene.directional_lights,
+		{direction = {0.4, -1.0, 0.2}, color = {1.0, 1.0, 1.0}, illuminance = 2.0},
+	)
+	append(
+		&scene.point_lights,
+		{position = {0.0, 0.0, 0.0}, color = {1.0, 1.0, 0.5}, power = 200.0, radius = 15.0},
 	)
 
 	rows := 10
@@ -181,8 +179,9 @@ main :: proc() {
 		}
 
 		cursor_state := basalt.window_get_cursor_state(window)
-		if (.Just_Pressed in basalt.get_mouse_button(window, .Left) && cursor_state == .Normal) ||
-		   .Just_Pressed in basalt.get_key(window, .Escape) {
+		if (.Just_Pressed in basalt.input_get_mouse_button(input, .Left) &&
+			   cursor_state == .Normal) ||
+		   .Just_Pressed in basalt.input_get_key(input, .Escape) {
 			#partial switch cursor_state {
 			case .Normal:
 				cursor_state = .Disabled
@@ -195,9 +194,9 @@ main :: proc() {
 		}
 
 		if cursor_state == .Disabled {
-			look_around(&flycam, window, controls)
-			walk_around(&flycam, window, controls, delta_time)
-			zoom(&flycam, window, controls)
+			look_around(&flycam, input, controls)
+			walk_around(&flycam, input, controls, delta_time)
+			zoom(&flycam, input, controls)
 			update_flycam(&flycam, delta_time)
 		}
 
@@ -212,47 +211,47 @@ main :: proc() {
 	}
 }
 
-look_around :: proc(flycam: ^Fly_Camera, window: ^basalt.Window, controls: Controls) {
-	flycam.yaw += f32(window.cursor_delta.x) * controls.mouse_sensitivity
-	flycam.pitch += f32(window.cursor_delta.y) * controls.mouse_sensitivity
+look_around :: proc(flycam: ^Fly_Camera, input: ^basalt.Input_State, controls: Controls) {
+	flycam.yaw += f32(input.cursor_delta.x) * controls.mouse_sensitivity
+	flycam.pitch += f32(input.cursor_delta.y) * controls.mouse_sensitivity
 	flycam.pitch = clamp(flycam.pitch, -1.56, 1.56)
 }
 
-walk_around :: proc(flycam: ^Fly_Camera, window: ^basalt.Window, controls: Controls, dt: f32) {
+walk_around :: proc(flycam: ^Fly_Camera, input: ^basalt.Input_State, controls: Controls, dt: f32) {
 	right := [3]f32{math.cos(flycam.yaw), 0.0, -math.sin(flycam.yaw)}
 	front := [3]f32{math.sin(flycam.yaw), 0.0, math.cos(flycam.yaw)}
 
 	wish := [3]f32{0.0, 0.0, 0.0}
-	if .Pressed in basalt.get_key(window, controls.walk_forward) {
+	if .Pressed in basalt.input_get_key(input, controls.walk_forward) {
 		wish += front
 	}
-	if .Pressed in basalt.get_key(window, controls.walk_backward) {
+	if .Pressed in basalt.input_get_key(input, controls.walk_backward) {
 		wish -= front
 	}
-	if .Pressed in basalt.get_key(window, controls.walk_left) {
+	if .Pressed in basalt.input_get_key(input, controls.walk_left) {
 		wish -= right
 	}
-	if .Pressed in basalt.get_key(window, controls.walk_right) {
+	if .Pressed in basalt.input_get_key(input, controls.walk_right) {
 		wish += right
 	}
-	if .Pressed in basalt.get_key(window, controls.go_up) {
+	if .Pressed in basalt.input_get_key(input, controls.go_up) {
 		wish.y += 1.0
 	}
-	if .Pressed in basalt.get_key(window, controls.go_down) {
+	if .Pressed in basalt.input_get_key(input, controls.go_down) {
 		wish.y -= 1.0
 	}
 
 	wish = linalg.normalize0(wish)
 	speed := flycam.speed
-	if .Pressed in basalt.get_key(window, controls.boost) {
+	if .Pressed in basalt.input_get_key(input, controls.boost) {
 		speed *= flycam.boost
 	}
 
 	flycam.velocity += (wish * speed - flycam.velocity) * (1 - math.exp(-flycam.damp * dt))
 }
 
-zoom :: proc(flycam: ^Fly_Camera, window: ^basalt.Window, controls: Controls) {
-	flycam.target_zoom += controls.zoom_amount * f32(window.scroll_delta.y)
+zoom :: proc(flycam: ^Fly_Camera, input: ^basalt.Input_State, controls: Controls) {
+	flycam.target_zoom += controls.zoom_amount * f32(input.scroll_delta.y)
 }
 
 update_flycam :: proc(flycam: ^Fly_Camera, dt: f32) {

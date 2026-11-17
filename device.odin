@@ -1,6 +1,6 @@
 package basalt
 import "core:log"
-import "../third_party/vma"
+import "third_party/vma"
 import vk "vendor:vulkan"
 
 @(private = "file")

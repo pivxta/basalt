@@ -17,7 +17,7 @@ Surface_Capabilities :: struct {
 @(require_results)
 surface_init :: proc(surface: ^Surface, instance: Instance, window: ^Window) -> vk.Result {
 	surface.window = window
-	surface.surface = window_create_surface(window, instance) or_return
+	surface.surface = window_create_surface(window, instance.handle) or_return
 	return nil
 }
 

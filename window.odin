@@ -7,148 +7,15 @@ import vk "vendor:vulkan"
 @(private = "file")
 glfw_users := 0
 
-Key :: enum {
-	Space,
-	Apostrophe,
-	Comma,
-	Minus,
-	Period,
-	Slash,
-	Alpha_0,
-	Alpha_1,
-	Alpha_2,
-	Alpha_3,
-	Alpha_4,
-	Alpha_5,
-	Alpha_6,
-	Alpha_7,
-	Alpha_8,
-	Alpha_9,
-	Semicolon,
-	Equal,
-	A,
-	B,
-	C,
-	D,
-	E,
-	F,
-	G,
-	H,
-	I,
-	J,
-	K,
-	L,
-	M,
-	N,
-	O,
-	P,
-	Q,
-	R,
-	S,
-	T,
-	U,
-	V,
-	W,
-	X,
-	Y,
-	Z,
-	Left_Bracket,
-	Backslash,
-	Right_Bracket,
-	Grave_Accent,
-	World_1,
-	World_2,
-	Escape,
-	Enter,
-	Tab,
-	Backspace,
-	Insert,
-	Delete,
-	Right,
-	Left,
-	Down,
-	Up,
-	Page_Up,
-	Page_Down,
-	Home,
-	End,
-	Caps_Lock,
-	Scroll_Lock,
-	Num_Lock,
-	Print_Screen,
-	Pause,
-	F1,
-	F2,
-	F3,
-	F4,
-	F5,
-	F6,
-	F7,
-	F8,
-	F9,
-	F10,
-	F11,
-	F12,
-	F13,
-	F14,
-	F15,
-	F16,
-	F17,
-	F18,
-	F19,
-	F20,
-	F21,
-	F22,
-	F23,
-	F24,
-	F25,
-	Keypad_0,
-	Keypad_1,
-	Keypad_2,
-	Keypad_3,
-	Keypad_4,
-	Keypad_5,
-	Keypad_6,
-	Keypad_7,
-	Keypad_8,
-	Keypad_9,
-	Keypad_Decimal,
-	Keypad_Divide,
-	Keypad_Multiply,
-	Keypad_Subtract,
-	Keypad_Add,
-	Keypad_Enter,
-	Keypad_Equal,
-	Left_Shift,
-	Left_Control,
-	Left_Alt,
-	Left_Super,
-	Right_Shift,
-	Right_Control,
-	Right_Alt,
-	Right_Super,
-	Menu,
+Window :: struct {
+	handle:      glfw.WindowHandle,
+	resized:     bool,
+	input_state: ^Input_State,
 }
 
-Mouse_Button :: enum {
-	Button_1,
-	Button_2,
-	Button_3,
-	Button_4,
-	Button_5,
-	Button_6,
-	Button_7,
-	Button_8,
-	Left = Button_1,
-	Right = Button_2,
-	Middle = Button_3,
-}
-
-Button_State :: enum {
-	Just_Pressed,
-	Just_Released,
-	Pressed,
-	Released,
+Window_Error :: enum {
+	Library_Init_Failure,
+	Creation_Failure,
 }
 
 Cursor_State :: enum {
@@ -158,27 +25,17 @@ Cursor_State :: enum {
 	Disabled,
 }
 
-Window :: struct {
-	handle:                 glfw.WindowHandle,
-	resized:                bool,
-	keys_current:           bit_set[Key],
-	keys_previous:          bit_set[Key],
-	mouse_buttons_current:  bit_set[Mouse_Button],
-	mouse_buttons_previous: bit_set[Mouse_Button],
-	cursor_position:        [2]f64,
-	cursor_delta:           [2]f64,
-	scroll_delta:           [2]f64,
-}
-
-Window_Error :: enum {
-	Library_Init_Failure,
-	Creation_Failure,
-}
-
-window_create :: proc(width, height: int, title: string) -> (^Window, Window_Error) {
+window_create :: proc(
+	width, height: int, 
+	title: string,
+) -> (
+	^Window, 
+	^Input_State, 
+	Window_Error,
+) {
 	if glfw_users == 0 {
 		if !glfw.Init() {
-			return nil, .Library_Init_Failure
+			return nil, nil, .Library_Init_Failure
 		}
 	}
 	glfw_users += 1
@@ -192,14 +49,16 @@ window_create :: proc(width, height: int, title: string) -> (^Window, Window_Err
 		if glfw_users == 0 {
 			glfw.Terminate()
 		}
-		return nil, .Creation_Failure
+		return nil, nil, .Creation_Failure
 	}
 
 	window := new(Window)
+	input := new(Input_State)
 	window.handle = handle
-	window.cursor_position.x, window.cursor_position.y = glfw.GetCursorPos(window.handle)
+	window.input_state = input
+	input.cursor_position.x, input.cursor_position.y = glfw.GetCursorPos(window.handle)
 	glfw.SetWindowUserPointer(window.handle, window)
-	glfw.SetFramebufferSizeCallback(window.handle, fb_size_callback)
+	glfw.SetFramebufferSizeCallback(window.handle, framebuffer_size_callback)
 	glfw.SetKeyCallback(window.handle, key_callback)
 	glfw.SetMouseButtonCallback(window.handle, mouse_button_callback)
 	glfw.SetCursorPosCallback(window.handle, cursor_callback)
@@ -207,19 +66,94 @@ window_create :: proc(width, height: int, title: string) -> (^Window, Window_Err
 	if glfw.RawMouseMotionSupported() {
 		glfw.SetInputMode(window.handle, glfw.RAW_MOUSE_MOTION, c.int(glfw.TRUE))
 	}
-	return window, nil
+	return window, input, nil
 }
 
-window_create_surface :: proc(window: ^Window, instance: Instance) -> (vk.SurfaceKHR, vk.Result) {
+window_create_surface :: proc(window: ^Window, instance: vk.Instance) -> (vk.SurfaceKHR, vk.Result) {
 	assert(window != nil)
 	surface: vk.SurfaceKHR
-	result := glfw.CreateWindowSurface(instance.handle, window.handle, nil, &surface)
+	result := glfw.CreateWindowSurface(instance, window.handle, nil, &surface)
 	return surface, result
 }
 
 window_set_cursor_state :: proc(window: ^Window, state: Cursor_State) {
 	assert(window != nil)
 	glfw.SetInputMode(window.handle, glfw.CURSOR, cursor_state_to_glfw(state))
+}
+
+window_set_title :: proc(window: ^Window, title: string) {
+	assert(window != nil)
+	ctitle := strings.clone_to_cstring(title)
+	glfw.SetWindowTitle(window.handle, ctitle)
+	delete(ctitle)
+}
+
+window_set_size :: proc(window: ^Window, width, height: int) {
+	assert(window != nil)
+	glfw.SetWindowSize(window.handle, c.int(width), c.int(height))
+}
+
+window_set_size_limits :: proc(
+	window: ^Window,
+	min_width: Maybe(int),
+	min_height: Maybe(int),
+	max_width: Maybe(int),
+	max_height: Maybe(int),
+) {
+	assert(window != nil)
+	glfw.SetWindowSizeLimits(
+		window.handle,
+		c.int(min_width.? or_else glfw.DONT_CARE),
+		c.int(min_height.? or_else glfw.DONT_CARE),
+		c.int(max_width.? or_else glfw.DONT_CARE),
+		c.int(max_height.? or_else glfw.DONT_CARE),
+	)
+}
+
+window_set_position :: proc(window: ^Window, x, y: int) {
+	assert(window != nil)
+	glfw.SetWindowPos(window.handle, c.int(x), c.int(y))
+}
+
+window_set_minimized :: proc(window: ^Window, minimize: bool) {
+	assert(window != nil)
+	if minimize {
+		glfw.IconifyWindow(window.handle)
+	} else {
+		if window_is_minimized(window) {
+			window_restore(window)
+		}
+	}
+}
+
+window_set_maximized :: proc(window: ^Window, maximize: bool) {
+	assert(window != nil)
+	if maximize {
+		glfw.MaximizeWindow(window.handle)
+	} else {
+		if window_is_maximized(window) {
+			window_restore(window)
+		}
+	}
+}
+
+window_restore :: proc(window: ^Window) {
+	assert(window != nil)
+	glfw.RestoreWindow(window.handle)
+}
+
+window_set_visible :: proc(window: ^Window, visible: bool) {
+	assert(window != nil)
+	if visible {
+		glfw.ShowWindow(window.handle)
+	} else {
+		glfw.HideWindow(window.handle)
+	}
+}
+
+window_focus :: proc(window: ^Window) {
+	assert(window != nil)
+	glfw.FocusWindow(window.handle)
 }
 
 window_get_cursor_state :: proc(window: ^Window) -> Cursor_State {
@@ -237,10 +171,52 @@ window_get_cursor_state :: proc(window: ^Window) -> Cursor_State {
 	unreachable()
 }
 
+window_get_title :: proc(window: ^Window) -> string {
+	assert(window != nil)
+	return string(glfw.GetWindowTitle(window.handle))
+}
+
+window_get_content_scale :: proc(window: ^Window) -> (f32, f32) {
+	assert(window != nil)
+	return glfw.GetWindowContentScale(window.handle)
+}
+
+window_get_size :: proc(window: ^Window) -> (int, int) {
+	assert(window != nil)
+	width, height := glfw.GetWindowSize(window.handle)
+	return int(width), int(height)
+}
+
 window_get_framebuffer_size :: proc(window: ^Window) -> (int, int) {
 	assert(window != nil)
 	width, height := glfw.GetFramebufferSize(window.handle)
 	return int(width), int(height)
+}
+
+window_get_position :: proc(window: ^Window) -> (int, int) {
+	assert(window != nil)
+	x, y := glfw.GetWindowPos(window.handle)
+	return int(x), int(y)
+}
+
+window_is_minimized :: proc(window: ^Window) -> bool {
+	assert(window != nil)
+	return glfw.GetWindowAttrib(window.handle, glfw.ICONIFIED) != 0
+}
+
+window_is_maximized :: proc(window: ^Window) -> bool {
+	assert(window != nil)
+	return glfw.GetWindowAttrib(window.handle, glfw.MAXIMIZED) != 0
+}
+
+window_is_visible :: proc(window: ^Window) -> bool {
+	assert(window != nil)
+	return glfw.GetWindowAttrib(window.handle, glfw.VISIBLE) != 0
+}
+
+window_is_focused :: proc(window: ^Window) -> bool {
+	assert(window != nil)
+	return glfw.GetWindowAttrib(window.handle, glfw.FOCUSED) != 0
 }
 
 window_should_close :: proc(window: ^Window) -> bool {
@@ -262,53 +238,8 @@ window_destroy :: proc(window: ^Window) {
 		}
 	}
 
+	free(window.input_state)
 	free(window)
-}
-
-get_key :: proc(window: ^Window, key: Key) -> bit_set[Button_State] {
-	assert(window != nil)
-
-	pressed := key in window.keys_current
-	was_pressed := key in window.keys_previous
-
-	result: bit_set[Button_State]
-	if pressed {
-		result |= {.Pressed}
-	}
-	if pressed && !was_pressed {
-		result |= {.Just_Pressed}
-	}
-	if !pressed {
-		result |= {.Released}
-	}
-	if !pressed && was_pressed {
-		result |= {.Just_Released}
-	}
-
-	return result
-}
-
-get_mouse_button :: proc(window: ^Window, button: Mouse_Button) -> bit_set[Button_State] {
-	assert(window != nil)
-
-	pressed := button in window.mouse_buttons_current
-	was_pressed := button in window.mouse_buttons_previous
-
-	result: bit_set[Button_State]
-	if pressed {
-		result |= {.Pressed}
-	}
-	if pressed && !was_pressed {
-		result |= {.Just_Pressed}
-	}
-	if !pressed {
-		result |= {.Released}
-	}
-	if !pressed && was_pressed {
-		result |= {.Just_Released}
-	}
-
-	return result
 }
 
 poll_window_events :: proc(windows: ..^Window) {
@@ -323,16 +254,22 @@ poll_window_events :: proc(windows: ..^Window) {
 @(private = "file")
 prepare_input_poll :: proc(window: ^Window) {
 	window.resized = false
-	window.keys_previous = window.keys_current
-	window.mouse_buttons_previous = window.mouse_buttons_current
-	window.cursor_delta = {0, 0}
-	window.scroll_delta = {0, 0}
+
+	input := window.input_state
+	input.keys_previous = input.keys_current
+	input.mouse_buttons_previous = input.mouse_buttons_current
+	input.cursor_delta = {0, 0}
+	input.scroll_delta = {0, 0}
 }
 
 @(private = "file")
-fb_size_callback :: proc "cdecl" (window: glfw.WindowHandle, width: c.int, height: c.int) {
-	w := cast(^Window)glfw.GetWindowUserPointer(window)
-	w.resized = true
+framebuffer_size_callback :: proc "cdecl" (
+	window: glfw.WindowHandle, 
+	width: c.int, 
+	height: c.int,
+) {
+	window := cast(^Window)glfw.GetWindowUserPointer(window)
+	window.resized = true
 }
 
 @(private = "file")
@@ -343,17 +280,19 @@ key_callback :: proc "cdecl" (
 	action: c.int,
 	mods: c.int,
 ) {
-	w := cast(^Window)glfw.GetWindowUserPointer(window)
-	k, ok := key_from_glfw(key)
+	window := cast(^Window)glfw.GetWindowUserPointer(window)
+	input := window.input_state
+
+	key, ok := key_from_glfw(key)
 	if !ok {
 		return
 	}
 
 	switch action {
 	case glfw.PRESS:
-		w.keys_current |= {k}
+		input.keys_current |= {key}
 	case glfw.RELEASE:
-		w.keys_current &= ~{k}
+		input.keys_current &= ~{key}
 	}
 }
 
@@ -364,48 +303,40 @@ mouse_button_callback :: proc "cdecl" (
 	action: c.int,
 	mods: c.int,
 ) {
-	w := cast(^Window)glfw.GetWindowUserPointer(window)
-	b, ok := mouse_button_from_glfw(button)
+	window := cast(^Window)glfw.GetWindowUserPointer(window)
+	input := window.input_state
+
+	button, ok := mouse_button_from_glfw(button)
 	if !ok {
 		return
 	}
 
 	switch action {
 	case glfw.PRESS:
-		w.mouse_buttons_current |= {b}
+		input.mouse_buttons_current |= {button}
 	case glfw.RELEASE:
-		w.mouse_buttons_current &= ~{b}
+		input.mouse_buttons_current &= ~{button}
 	}
 }
 
 @(private = "file")
 cursor_callback :: proc "cdecl" (window: glfw.WindowHandle, x: f64, y: f64) {
-	w := cast(^Window)glfw.GetWindowUserPointer(window)
-	w.cursor_delta.x += x - w.cursor_position.x
-	w.cursor_delta.y += y - w.cursor_position.y
-	w.cursor_position.x = x
-	w.cursor_position.y = y
+	window := cast(^Window)glfw.GetWindowUserPointer(window)
+	input := window.input_state
+
+	input.cursor_delta.x += x - input.cursor_position.x
+	input.cursor_delta.y += y - input.cursor_position.y
+	input.cursor_position.x = x
+	input.cursor_position.y = y
 }
 
 @(private = "file")
 scroll_callback :: proc "cdecl" (window: glfw.WindowHandle, x: f64, y: f64) {
-	w := cast(^Window)glfw.GetWindowUserPointer(window)
-	w.scroll_delta.x += x
-	w.scroll_delta.y += y
-}
+	window := cast(^Window)glfw.GetWindowUserPointer(window)
+	input := window.input_state
 
-cursor_state_to_glfw :: proc "contextless" (state: Cursor_State) -> c.int {
-	switch state {
-	case .Normal:
-		return glfw.CURSOR_NORMAL
-	case .Hidden:
-		return glfw.CURSOR_HIDDEN
-	case .Captured:
-		return glfw.CURSOR_CAPTURED
-	case .Disabled:
-		return glfw.CURSOR_DISABLED
-	}
-	unreachable()
+	input.scroll_delta.x += x
+	input.scroll_delta.y += y
 }
 
 key_to_glfw :: proc "contextless" (key: Key) -> c.int {
@@ -904,9 +835,26 @@ mouse_button_to_glfw :: proc "contextless" (button: Mouse_Button) -> c.int {
 	return c.int(button)
 }
 
-mouse_button_from_glfw :: proc "contextless" (code: c.int) -> (button: Mouse_Button, ok: bool) {
+mouse_button_from_glfw :: proc "contextless" (code: c.int) -> (
+	button: Mouse_Button, 
+	ok: bool,
+) {
 	if code < 0 || code > glfw.MOUSE_BUTTON_LAST {
 		return
 	}
-	return Mouse_Button(code), true
+	return Mouse_Button(code), true,
+}
+
+cursor_state_to_glfw :: proc "contextless" (state: Cursor_State) -> c.int {
+	switch state {
+	case .Normal:
+		return glfw.CURSOR_NORMAL
+	case .Hidden:
+		return glfw.CURSOR_HIDDEN
+	case .Captured:
+		return glfw.CURSOR_CAPTURED
+	case .Disabled:
+		return glfw.CURSOR_DISABLED
+	}
+	unreachable()
 }

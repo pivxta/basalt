@@ -56,7 +56,7 @@ Orthographic_Projection :: struct {
 	far:   f32,
 }
 
-scene_init :: proc(scene: ^Scene) {
+scene_make :: proc() -> (scene: Scene) {
 	scene.clear_color = {0.1, 0.1, 0.1, 1.0}
 	scene.camera = {
 		transform = AFFINE_IDENTITY,
@@ -69,6 +69,7 @@ scene_init :: proc(scene: ^Scene) {
 	scene.point_lights = make([dynamic]Point_Light, 0)
 	scene.directional_lights = make([dynamic]Directional_Light, 0)
 	scene.mesh_objects = make([dynamic]Mesh_Object, 0)
+	return
 }
 
 scene_destroy :: proc(scene: ^Scene) {

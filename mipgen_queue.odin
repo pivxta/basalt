@@ -1,3 +1,4 @@
+#+private
 package basalt
 import vk "vendor:vulkan"
 

@@ -1,9 +1,10 @@
+#+private
 package basalt
 import "base:runtime"
 import "core:log"
 import "core:math/bits"
 import "core:slice"
-import "../third_party/vma"
+import "third_party/vma"
 import vk "vendor:vulkan"
 
 POOL_DEFAULT_ALIGNMENT :: 16

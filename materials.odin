@@ -598,14 +598,11 @@ materials_get_info :: proc(
 }
 
 materials_get_identifiers :: proc(
-	materials: Materials, 
+	materials: Materials,
 	id: Material_Type_Id,
 ) -> Material_Identifiers {
 	assert(int(id) < len(materials.types))
-	return {
-		type_name = materials.types[id].name,
-		module_name = materials.types[id].module_name,
-	}
+	return {type_name = materials.types[id].name, module_name = materials.types[id].module_name}
 }
 
 materials_is_valid :: proc(materials: ^Materials, handle: Material_Handle) -> bool {

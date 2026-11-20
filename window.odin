@@ -25,14 +25,7 @@ Cursor_State :: enum {
 	Disabled,
 }
 
-window_create :: proc(
-	width, height: int, 
-	title: string,
-) -> (
-	^Window, 
-	^Input_State, 
-	Window_Error,
-) {
+window_create :: proc(width, height: int, title: string) -> (^Window, ^Input_State, Window_Error) {
 	if glfw_users == 0 {
 		if !glfw.Init() {
 			return nil, nil, .Library_Init_Failure
@@ -69,7 +62,13 @@ window_create :: proc(
 	return window, input, nil
 }
 
-window_create_surface :: proc(window: ^Window, instance: vk.Instance) -> (vk.SurfaceKHR, vk.Result) {
+window_create_surface :: proc(
+	window: ^Window,
+	instance: vk.Instance,
+) -> (
+	vk.SurfaceKHR,
+	vk.Result,
+) {
 	assert(window != nil)
 	surface: vk.SurfaceKHR
 	result := glfw.CreateWindowSurface(instance, window.handle, nil, &surface)
@@ -264,8 +263,8 @@ prepare_input_poll :: proc(window: ^Window) {
 
 @(private = "file")
 framebuffer_size_callback :: proc "cdecl" (
-	window: glfw.WindowHandle, 
-	width: c.int, 
+	window: glfw.WindowHandle,
+	width: c.int,
 	height: c.int,
 ) {
 	window := cast(^Window)glfw.GetWindowUserPointer(window)
@@ -835,14 +834,11 @@ mouse_button_to_glfw :: proc "contextless" (button: Mouse_Button) -> c.int {
 	return c.int(button)
 }
 
-mouse_button_from_glfw :: proc "contextless" (code: c.int) -> (
-	button: Mouse_Button, 
-	ok: bool,
-) {
+mouse_button_from_glfw :: proc "contextless" (code: c.int) -> (button: Mouse_Button, ok: bool) {
 	if code < 0 || code > glfw.MOUSE_BUTTON_LAST {
 		return
 	}
-	return Mouse_Button(code), true,
+	return Mouse_Button(code), true
 }
 
 cursor_state_to_glfw :: proc "contextless" (state: Cursor_State) -> c.int {

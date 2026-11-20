@@ -195,7 +195,7 @@ init_renderer :: proc(renderer: ^Renderer, window: ^Window) -> Renderer_Error {
 		push_constant_ranges[:],
 	) or_return
 
-	shaders_init(&renderer.shaders, { "shaders/" }) or_return
+	shaders_init(&renderer.shaders, {"shaders/"}) or_return
 	passes_init(&renderer.passes, &renderer.shaders, &renderer.pipelines, &renderer.materials)
 
 	return setup_renderer(renderer)
@@ -440,13 +440,8 @@ renderer_replace_material :: proc(
 	location := #caller_location,
 ) -> Material_Error {
 	assert(renderer != nil)
-	if err := materials_replace(
-		&renderer.materials,
-		renderer.frame_ring,
-		handle,
-		params,
-		props,
-	); err != nil {
+	if err := materials_replace(&renderer.materials, renderer.frame_ring, handle, params, props);
+	   err != nil {
 		log.errorf("Failed to replace material: %v", err, location = location)
 		return err
 	}
@@ -478,7 +473,14 @@ renderer_register_material_type :: proc(
 	resolve: proc(_: ^Textures, _: Params) -> Data,
 ) -> Material_Type_Id {
 	assert(renderer != nil)
-	return materials_register_type(&renderer.materials, Params, Data, type_name, module_name, resolve)
+	return materials_register_type(
+		&renderer.materials,
+		Params,
+		Data,
+		type_name,
+		module_name,
+		resolve,
+	)
 }
 
 @(private = "file")
@@ -490,18 +492,18 @@ forward_select :: proc(
 	base: Raster_State,
 ) -> Maybe(Pass_Selection) {
 	vertex, vertex_err := shaders_get_program(
-		shaders, 
-		device, 
+		shaders,
+		device,
 		stage = .VERTEX,
-		module = "entries/forward.slang", 
-		entry = "VSMain", 
+		module = "entries/forward.slang",
+		entry = "VSMain",
 	)
 	fragment, fragment_err := shaders_get_program(
-		shaders, 
-		device, 
+		shaders,
+		device,
 		stage = .FRAGMENT,
-		module = "entries/forward.slang", 
-		entry = "FSMain", 
+		module = "entries/forward.slang",
+		entry = "FSMain",
 		specialization_args = {
 			Type_Specialization_Arg {
 				type_name = idents.type_name,

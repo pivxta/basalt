@@ -1,6 +1,6 @@
 package basalt
-import "bindings/slang"
 import "base:runtime"
+import "bindings/slang"
 import "core:fmt"
 import "core:log"
 import "core:slice"
@@ -84,10 +84,12 @@ Shader_Program :: struct {
 
 @(require_results)
 shaders_init :: proc(
-	shaders: ^Shaders, 
+	shaders: ^Shaders,
 	search_paths: []string,
 	allocator := context.allocator,
-) -> (err: Slang_Error) {
+) -> (
+	err: Slang_Error,
+) {
 	shaders^ = {}
 
 	result := slang.create_global_session(slang.API_VERSION, &shaders.global_session)
@@ -159,7 +161,10 @@ shaders_get_program :: proc(
 	module: string,
 	entry: string,
 	specialization_args: []Specialization_Arg = nil,
-) -> (id: Shader_Program_Id, err: Shader_Error) {
+) -> (
+	id: Shader_Program_Id,
+	err: Shader_Error,
+) {
 	specialization := get_specialization_string(specialization_args, context.temp_allocator)
 	if program_id, ok := shaders.programs_by_key[{module, entry, specialization, stage}]; ok {
 		return program_id, nil
@@ -188,8 +193,8 @@ shaders_get_program :: proc(
 	append(
 		&shaders.programs,
 		{
-			module_name = module_name, 
-			entry_name = entry_cname, 
+			module_name = module_name,
+			entry_name = entry_cname,
 			specialization = spec_name,
 			stage = stage,
 			module = new_module,
@@ -235,12 +240,15 @@ shaders_get_stage_info :: proc(
 
 @(private = "file", require_results)
 load_shader_spirv :: proc(
-	session: ^slang.Session, 
+	session: ^slang.Session,
 	module_name: string,
 	entry_name: string,
 	spec_args: []Specialization_Arg,
 	allocator := context.temp_allocator,
-) -> ([]u32, Slang_Error) {
+) -> (
+	[]u32,
+	Slang_Error,
+) {
 	load_diagnostics: ^slang.Blob
 	module_cname := strings.clone_to_cstring(module_name, context.temp_allocator)
 	module := session->load_module(module_cname, &load_diagnostics)
@@ -264,9 +272,9 @@ load_shader_spirv :: proc(
 
 		spec_failed := spec_module == nil
 		log_diagnostics(
-			spec_load_diagnostics, 
-			spec_failed, 
-			"loading specialization module '%v'", 
+			spec_load_diagnostics,
+			spec_failed,
+			"loading specialization module '%v'",
 			spec_module_name,
 		)
 		if spec_failed {
@@ -279,7 +287,7 @@ load_shader_spirv :: proc(
 	}
 
 	entry_point: ^slang.Entry_Point
-	entry_cname := strings.clone_to_cstring(entry_name, context.temp_allocator) 
+	entry_cname := strings.clone_to_cstring(entry_name, context.temp_allocator)
 	result := module->find_entry_point_by_name(entry_cname, &entry_point)
 	if result < 0 || entry_point == nil {
 		log.errorf("No such entry point '%v' for module '%v'", entry_name, module_name)
@@ -287,7 +295,7 @@ load_shader_spirv :: proc(
 	}
 
 	component_types := make(
-		[dynamic]^slang.Component_Type, 
+		[dynamic]^slang.Component_Type,
 		0,
 		len(spec_modules) + 2,
 		context.temp_allocator,
@@ -310,9 +318,9 @@ load_shader_spirv :: proc(
 
 	failed = result < 0 || composite == nil
 	log_diagnostics(
-		composite_diagnostics, 
-		failed, 
-		"creating composite from module '%v' and entry point '%v'", 
+		composite_diagnostics,
+		failed,
+		"creating composite from module '%v' and entry point '%v'",
 		module_name,
 		entry_name,
 	)
@@ -339,9 +347,9 @@ load_shader_spirv :: proc(
 	layout := composite->get_layout(0, &layout_diagnostics)
 	failed = layout == nil
 	log_diagnostics(
-		layout_diagnostics, 
-		failed, 
-		"getting program layout from module '%v' and entry point '%v'", 
+		layout_diagnostics,
+		failed,
+		"getting program layout from module '%v' and entry point '%v'",
 		module_name,
 		entry_name,
 	)
@@ -386,9 +394,9 @@ load_shader_spirv :: proc(
 	composite->release()
 	failed = result < 0 || specialized == nil
 	log_diagnostics(
-		specialization_diagnostics, 
-		failed, 
-		"specializing entry point '%v' from module '%v'", 
+		specialization_diagnostics,
+		failed,
+		"specializing entry point '%v' from module '%v'",
 		entry_name,
 		module_name,
 	)
@@ -402,9 +410,9 @@ load_shader_spirv :: proc(
 	specialized->release()
 	failed = result < 0 || linked == nil
 	log_diagnostics(
-		link_diagnostics, 
-		failed, 
-		"linking composite from module '%v' and entry point '%v'", 
+		link_diagnostics,
+		failed,
+		"linking composite from module '%v' and entry point '%v'",
 		module_name,
 		entry_name,
 	)
@@ -418,16 +426,16 @@ load_shader_spirv :: proc(
 	linked->release()
 	failed = result < 0 || code_blob == nil
 	log_diagnostics(
-		code_diagnostics, 
-		failed, 
-		"generating code from module '%v' and entry point '%v'", 
+		code_diagnostics,
+		failed,
+		"generating code from module '%v' and entry point '%v'",
 		module_name,
 		entry_name,
 	)
 	if failed {
 		return nil, .Code_Generation_Failed
 	}
-	
+
 	code_blob_spirv := blob_to_spirv(code_blob)
 	code_spirv := slice.clone(code_blob_spirv, allocator)
 	code_blob->release()
@@ -436,23 +444,28 @@ load_shader_spirv :: proc(
 
 @(private = "file")
 log_diagnostics :: proc(
-	blob: ^slang.Blob, 
-	failed: bool, 
-	format: string, 
+	blob: ^slang.Blob,
+	failed: bool,
+	format: string,
 	args: ..any,
 	location := #caller_location,
 ) {
 	message := fmt.tprintf(format, ..args)
-	
+
 	if blob != nil {
 		if failed {
-			log.errorf("Failure when %v:\n%v", message, blob_to_string(blob), location=location)
+			log.errorf("Failure when %v:\n%v", message, blob_to_string(blob), location = location)
 		} else {
-			log.warnf("Diagnostics from %v:\n%v", message, blob_to_string(blob), location=location)
+			log.warnf(
+				"Diagnostics from %v:\n%v",
+				message,
+				blob_to_string(blob),
+				location = location,
+			)
 		}
 		blob->release()
 	} else if failed {
-		log.errorf("Failure when %v", message, location=location)
+		log.errorf("Failure when %v", message, location = location)
 	}
 }
 
@@ -460,7 +473,10 @@ log_diagnostics :: proc(
 create_slang_session :: proc(
 	global_session: ^slang.Global_Session,
 	search_paths: []string,
-) -> (^slang.Session, Slang_Error) {
+) -> (
+	^slang.Session,
+	Slang_Error,
+) {
 	profile := global_session->find_profile("spirv_1_4")
 	if profile == slang.PROFILE_UNKNOWN {
 		return nil, .Profile_Not_Found
@@ -468,9 +484,9 @@ create_slang_session :: proc(
 
 	target_desc := slang.Target_Desc {
 		structure_size = size_of(slang.Target_Desc),
-		format = .SPIRV,
-		profile = profile,
-		flags = {.Generate_SPIRV_Directly},
+		format         = .SPIRV,
+		profile        = profile,
+		flags          = {.Generate_SPIRV_Directly},
 	}
 
 	compiler_options := []slang.Compiler_Option_Entry {
@@ -484,14 +500,14 @@ create_slang_session :: proc(
 	}
 
 	session_desc := slang.Session_Desc {
-		structure_size = size_of(slang.Session_Desc),
-		default_matrix_layout_mode = .Column_Major,
-		search_paths = raw_data(session_search_paths),
-		search_path_count = len(session_search_paths),
-		compiler_option_entries = raw_data(compiler_options),
+		structure_size              = size_of(slang.Session_Desc),
+		default_matrix_layout_mode  = .Column_Major,
+		search_paths                = raw_data(session_search_paths),
+		search_path_count           = len(session_search_paths),
+		compiler_option_entries     = raw_data(compiler_options),
 		compiler_option_entry_count = u32(len(compiler_options)),
-		targets = &target_desc,
-		target_count = 1,
+		targets                     = &target_desc,
+		target_count                = 1,
 	}
 
 	session: ^slang.Session
@@ -514,5 +530,5 @@ blob_to_string :: proc(blob: ^slang.Blob) -> string {
 
 blob_to_spirv :: proc(blob: ^slang.Blob) -> []u32 {
 	spirv_raw := cast([^]u32)blob->get_buffer_pointer()
-	return spirv_raw[:blob->get_buffer_size() / size_of(u32)]	
+	return spirv_raw[:blob->get_buffer_size() / size_of(u32)]
 }

@@ -31,14 +31,21 @@ Build_Deps_Options :: struct {
 	clean: bool `usage:"Clean dependencies"`,
 }
 
+Test_Options :: struct {}
+
 main :: proc() {
 	if len(os.args) < 2 {
-		fmt.eprintln("usage: build <deps|example> [options]")
+		fmt.eprintln("usage: build <test|deps|example> [options]")
 		os.exit(1)
 	}
 
 	sub_args := os.args[1:]
 	switch os.args[1] {
+	case "test":
+		options: Test_Options
+		flags.parse_or_exit(&options, sub_args, .Odin)
+		catch_alloc_err(build_vma())
+		catch_alloc_err(test(options))
 	case "deps":
 		options: Build_Deps_Options
 		flags.parse_or_exit(&options, sub_args, .Odin)
@@ -58,7 +65,7 @@ main :: proc() {
 			catch_alloc_err(build_example(options))
 		}
 	case:
-		fmt.eprintln("usage: build <deps|example> [options]")
+		fmt.eprintln("usage: build <test|deps|example> [options]")
 		os.exit(1)
 	}
 }
@@ -190,6 +197,29 @@ list_examples :: proc() -> mem.Allocator_Error {
 		}
 	}
 
+	return nil
+}
+
+test :: proc(options: Test_Options) -> mem.Allocator_Error {
+	project_dir := filepath.join({#directory, ".."}, context.temp_allocator) or_return
+
+	out_dir := filepath.join({project_dir, BUILD_OUT, "tests"}, context.temp_allocator) or_return
+	out_path := filepath.join({out_dir, "basalt"}, context.temp_allocator) or_return
+	when ODIN_OS == .Windows {
+		out_path = fmt.tprintf("%s.exe", out_path)
+	}
+
+	_ = os.make_directory_all(out_dir)
+
+	args := make([dynamic]string, context.temp_allocator)
+	append(&args, "odin", "test", project_dir)
+	append(&args, "-debug", "-vet", "-strict-style", "-disallow-do", "-warnings-as-errors")
+	append(&args, fmt.tprintf("-out:%s", out_path))
+	append_toggle_define(&args, "ENABLE_VALIDATION", .on)
+	append_toggle_define(&args, "ENABLE_SYNC_VALIDATION", .on)
+	append_vulkan_sdk_link_flags(&args)
+
+	run(args[:])
 	return nil
 }
 

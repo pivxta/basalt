@@ -177,7 +177,10 @@ input_get_key :: proc(input: ^Input_State, key: Key) -> bit_set[Button_State] {
 	return result
 }
 
-input_get_mouse_button :: proc(input: ^Input_State, button: Mouse_Button) -> bit_set[Button_State] {
+input_get_mouse_button :: proc(
+	input: ^Input_State,
+	button: Mouse_Button,
+) -> bit_set[Button_State] {
 	assert(input != nil)
 
 	pressed := button in input.mouse_buttons_current
@@ -199,5 +202,3 @@ input_get_mouse_button :: proc(input: ^Input_State, button: Mouse_Button) -> bit
 
 	return result
 }
-
-

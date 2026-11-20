@@ -51,7 +51,11 @@ swapchain_destroy :: proc(swapchain: ^Swapchain, device: Device) {
 }
 
 @(require_results)
-swapchain_present :: proc(swapchain: Swapchain, device: Device, texture: Swapchain_Texture) -> vk.Result {
+swapchain_present :: proc(
+	swapchain: Swapchain,
+	device: Device,
+	texture: Swapchain_Texture,
+) -> vk.Result {
 	swapchain_handle := swapchain.handle
 	semaphore := texture.presentable
 	index := texture.index
@@ -100,11 +104,13 @@ swapchain_acquire_texture :: proc(
 
 @(require_results)
 swapchain_configure :: proc(
-	swapchain: ^Swapchain, 
-	device: Device, 
+	swapchain: ^Swapchain,
+	device: Device,
 	surface: Surface,
 	allocator := context.allocator,
-) -> (err: Swapchain_Error) {
+) -> (
+	err: Swapchain_Error,
+) {
 	caps := surface_query_capabilities(surface, device) or_return
 	if len(caps.formats) == 0 {
 		return Swapchain_Configure_Error.No_Surface_Formats
@@ -157,14 +163,16 @@ swapchain_configure :: proc(
 }
 
 @(private = "file")
-create_swapchain_textures :: proc(
-	swapchain: ^Swapchain,
-	device: Device,
-) -> Texture_Error {
+create_swapchain_textures :: proc(swapchain: ^Swapchain, device: Device) -> Texture_Error {
 	image_count: u32
 	vk.GetSwapchainImagesKHR(device.logical, swapchain.handle, &image_count, nil) or_return
 	images := make([]vk.Image, image_count, context.temp_allocator)
-	vk.GetSwapchainImagesKHR(device.logical, swapchain.handle, &image_count, raw_data(images)) or_return
+	vk.GetSwapchainImagesKHR(
+		device.logical,
+		swapchain.handle,
+		&image_count,
+		raw_data(images),
+	) or_return
 
 	swapchain.textures = make([]Texture, image_count, swapchain.allocator)
 	for image, n in images {
@@ -185,8 +193,8 @@ create_swapchain_textures :: proc(
 @(private = "file")
 create_swapchain_semaphores :: proc(swapchain: ^Swapchain, device: Device) -> vk.Result {
 	swapchain.presentable_semaphores = make(
-		[]vk.Semaphore, 
-		len(swapchain.textures), 
+		[]vk.Semaphore,
+		len(swapchain.textures),
 		swapchain.allocator,
 	)
 

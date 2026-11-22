@@ -20,6 +20,7 @@ Toggle :: enum {
 
 Build_Example_Options :: struct {
 	example:         string `args:"pos=0" usage:"Example to build."`,
+	clean:           bool `usage:"Clean example binaries."`,
 	run:             bool `usage:"Run example."`,
 	release:         bool `usage:"Optimized build (-o:speed) instead of a debug build."`,
 	debug_symbols:   bool `usage:"Output debug symbols on release mode"`,
@@ -28,14 +29,19 @@ Build_Example_Options :: struct {
 }
 
 Build_Deps_Options :: struct {
-	clean: bool `usage:"Clean dependencies"`,
+	clean: bool `usage:"Clean dependencies."`,
 }
 
-Test_Options :: struct {}
+Test_Options :: struct {
+	names: [dynamic]string `args:"pos=0,variadic" usage:"Run specific test."`,
+	clean: bool `usage:"Clean test binaries."`,
+}
+
+Clean_Options :: struct {}
 
 main :: proc() {
 	if len(os.args) < 2 {
-		fmt.eprintln("usage: build <test|deps|example> [options]")
+		fmt.eprintln("usage: build <test|deps|example|clean> [options]")
 		os.exit(1)
 	}
 
@@ -44,8 +50,16 @@ main :: proc() {
 	case "test":
 		options: Test_Options
 		flags.parse_or_exit(&options, sub_args, .Odin)
-		catch_alloc_err(build_vma())
-		catch_alloc_err(test(options))
+		if options.clean {
+			catch_alloc_err(clean_tests())
+			if len(options.names) > 0 {
+				catch_alloc_err(build_vma())
+				catch_alloc_err(test(options))
+			}
+		} else {
+			catch_alloc_err(build_vma())
+			catch_alloc_err(test(options))
+		}
 	case "deps":
 		options: Build_Deps_Options
 		flags.parse_or_exit(&options, sub_args, .Odin)
@@ -57,15 +71,27 @@ main :: proc() {
 	case "example":
 		options: Build_Example_Options
 		flags.parse_or_exit(&options, sub_args, .Odin)
-		catch_alloc_err(build_vma())
+		if options.clean {
+			catch_alloc_err(clean_examples())
+		}
 		if options.example == "" {
-			fmt.eprintln("No example given, here is a list of examples you can run:")
-			catch_alloc_err(list_examples())
+			if !options.clean {
+				fmt.eprintln("No example given, here is a list of examples you can run:")
+				catch_alloc_err(list_examples())
+			}
 		} else {
+			catch_alloc_err(build_vma())
 			catch_alloc_err(build_example(options))
 		}
+	case "clean":
+		options: Clean_Options
+		flags.parse_or_exit(&options, sub_args, .Odin)
+		catch_alloc_err(clean_tools())
+		catch_alloc_err(clean_examples())
+		catch_alloc_err(clean_tests())
+		catch_alloc_err(clean_vma())
 	case:
-		fmt.eprintln("usage: build <test|deps|example> [options]")
+		fmt.eprintln("usage: build <test|deps|example|clean> [options]")
 		os.exit(1)
 	}
 }
@@ -75,6 +101,14 @@ catch_alloc_err :: proc(err: mem.Allocator_Error) {
 		fmt.eprintfln("Out of memory: %v", err)
 		os.exit(1)
 	}
+}
+
+clean_tools :: proc() -> mem.Allocator_Error {
+	project_dir := filepath.join({#directory, ".."}, context.temp_allocator) or_return
+	out_dir := filepath.join({project_dir, BUILD_OUT, "tools"}, context.temp_allocator) or_return
+	fmt.eprintln("Cleaning tools")
+	os.remove_all(out_dir)
+	return nil
 }
 
 clean_vma :: proc() -> mem.Allocator_Error {
@@ -200,11 +234,19 @@ list_examples :: proc() -> mem.Allocator_Error {
 	return nil
 }
 
+clean_tests :: proc() -> mem.Allocator_Error {
+	project_dir := filepath.join({#directory, ".."}, context.temp_allocator) or_return
+	out_dir := filepath.join({project_dir, BUILD_OUT, "tests"}, context.temp_allocator) or_return
+	fmt.eprintln("Cleaning tests")
+	os.remove_all(out_dir)
+	return nil
+}
+
 test :: proc(options: Test_Options) -> mem.Allocator_Error {
 	project_dir := filepath.join({#directory, ".."}, context.temp_allocator) or_return
 
 	out_dir := filepath.join({project_dir, BUILD_OUT, "tests"}, context.temp_allocator) or_return
-	out_path := filepath.join({out_dir, "basalt"}, context.temp_allocator) or_return
+	out_path := filepath.join({out_dir, "tests"}, context.temp_allocator) or_return
 	when ODIN_OS == .Windows {
 		out_path = fmt.tprintf("%s.exe", out_path)
 	}
@@ -213,6 +255,14 @@ test :: proc(options: Test_Options) -> mem.Allocator_Error {
 
 	args := make([dynamic]string, context.temp_allocator)
 	append(&args, "odin", "test", project_dir)
+	if len(options.names) > 0 {
+		names := make([dynamic]string, context.temp_allocator)
+		for name in options.names {
+			append(&names, fmt.tprintf("basalt.%s", name))
+		}
+		joined_names := strings.join(names[:], ",", context.temp_allocator)
+		append(&args, fmt.tprintf("-define:ODIN_TEST_NAMES=%s", joined_names))
+	}
 	append(&args, "-debug", "-vet", "-strict-style", "-disallow-do", "-warnings-as-errors")
 	append(&args, fmt.tprintf("-out:%s", out_path))
 	append_toggle_define(&args, "ENABLE_VALIDATION", .on)
@@ -220,6 +270,16 @@ test :: proc(options: Test_Options) -> mem.Allocator_Error {
 	append_vulkan_sdk_link_flags(&args)
 
 	run(args[:])
+	return nil
+}
+
+clean_examples :: proc() -> mem.Allocator_Error {
+	project_dir := filepath.join({#directory, ".."}, context.temp_allocator) or_return
+	debug_dir := filepath.join({project_dir, BUILD_OUT, "debug"}, context.temp_allocator) or_return
+	release_dir := filepath.join({project_dir, BUILD_OUT, "release"}, context.temp_allocator) or_return
+	fmt.eprintln("Cleaning examples")
+	os.remove_all(debug_dir)
+	os.remove_all(release_dir)
 	return nil
 }
 
@@ -269,6 +329,7 @@ build_example :: proc(options: Build_Example_Options) -> mem.Allocator_Error {
 	if options.run {
 		run({out_path}, project_dir)
 	}
+
 	return nil
 }
 

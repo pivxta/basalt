@@ -68,6 +68,7 @@ world_destroy :: proc(world: ^World) {
 		}
 		entry.destroy(entry.resource, world.allocator)
 	}
+
 	for _, entry in world.sparse_sets {
 		entry.destroy(entry.set)
 	}

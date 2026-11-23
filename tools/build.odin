@@ -276,7 +276,10 @@ test :: proc(options: Test_Options) -> mem.Allocator_Error {
 clean_examples :: proc() -> mem.Allocator_Error {
 	project_dir := filepath.join({#directory, ".."}, context.temp_allocator) or_return
 	debug_dir := filepath.join({project_dir, BUILD_OUT, "debug"}, context.temp_allocator) or_return
-	release_dir := filepath.join({project_dir, BUILD_OUT, "release"}, context.temp_allocator) or_return
+	release_dir := filepath.join(
+		{project_dir, BUILD_OUT, "release"},
+		context.temp_allocator,
+	) or_return
 	fmt.eprintln("Cleaning examples")
 	os.remove_all(debug_dir)
 	os.remove_all(release_dir)

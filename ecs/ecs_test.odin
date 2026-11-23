@@ -605,14 +605,7 @@ expect_query_single :: proc(
 		}
 	}
 	{
-		a, b, c, d, e, entity, err := query_single(
-			world,
-			Test_A,
-			Test_B,
-			Test_C,
-			Test_D,
-			Test_E,
-		)
+		a, b, c, d, e, entity, err := query_single(world, Test_A, Test_B, Test_C, Test_D, Test_E)
 		testing.expect_value(t, err, expected, loc = loc)
 		testing.expect(
 			t,
@@ -658,26 +651,10 @@ test_query_single :: proc(t: ^testing.T) {
 	expect_query_single(t, world, .None_Found)
 
 	// Exactly one entity matches every arity.
-	first := spawn(
-		world,
-		Test_A{11},
-		Test_B{12},
-		Test_C{13},
-		Test_D{14},
-		Test_E{15},
-		Test_F{16},
-	)
+	first := spawn(world, Test_A{11}, Test_B{12}, Test_C{13}, Test_D{14}, Test_E{15}, Test_F{16})
 	expect_query_single(t, world, .None, first)
 
 	// A second match makes every arity report it, while still returning a result.
-	_ = spawn(
-		world,
-		Test_A{21},
-		Test_B{22},
-		Test_C{23},
-		Test_D{24},
-		Test_E{25},
-		Test_F{26},
-	)
+	_ = spawn(world, Test_A{21}, Test_B{22}, Test_C{23}, Test_D{24}, Test_E{25}, Test_F{26})
 	expect_query_single(t, world, .Multiple_Found)
 }

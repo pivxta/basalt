@@ -1,9 +1,9 @@
 package brender
-import bwindow "../window"
 import becs "../ecs"
-import bmath "../math"
 import bimage "../image"
+import bmath "../math"
 import bmesh "../mesh"
+import bwindow "../window"
 import "base:runtime"
 import "core:log"
 import "core:mem"
@@ -412,10 +412,7 @@ destroy_texture :: proc(renderer: ^Renderer, handle: Texture_Handle) {
 	textures_remove(&renderer.textures, renderer.frame_ring, handle)
 }
 
-set_texture_sampler_options :: proc(
-	renderer: ^Renderer,
-	options: Texture_Sampler_Options,
-) {
+set_texture_sampler_options :: proc(renderer: ^Renderer, options: Texture_Sampler_Options) {
 	assert(renderer != nil)
 	textures_set_sampler_options(&renderer.textures, options)
 }
@@ -671,15 +668,10 @@ write_frame_data :: proc(
 	height := int(renderer.swapchain.extent.height)
 	camera, camera_transform, _, _ := becs.query_single(world, Camera, bmath.Transform)
 	data.view = scratch_new_clone(
-		frame.scratch, 
+		frame.scratch,
 		View_Data {
-			position      = camera_transform.translation,
-			world_to_clip = get_world_to_clip_matrix(
-				camera^, 
-				camera_transform^,
-				width, 
-				height,
-			),
+			position = camera_transform.translation,
+			world_to_clip = get_world_to_clip_matrix(camera^, camera_transform^, width, height),
 		},
 	) or_return
 
@@ -761,12 +753,7 @@ write_frame_data :: proc(
 			draw_key := make_draw_key(pipeline, indexed, mesh)
 			append(
 				&scratch_objects,
-				{
-					draw_key = draw_key,
-					pipeline = pipeline,
-					mesh = mesh,
-					entity = entity,
-				},
+				{draw_key = draw_key, pipeline = pipeline, mesh = mesh, entity = entity},
 			)
 		}
 	}
@@ -795,10 +782,7 @@ write_frame_data :: proc(
 		}
 
 		instance_count := i - draw_start
-		mesh_info, mesh_ok := meshes_get_info(
-			&renderer.meshes,
-			scratch_objects[draw_start].mesh,
-		)
+		mesh_info, mesh_ok := meshes_get_info(&renderer.meshes, scratch_objects[draw_start].mesh)
 		assert(mesh_ok)
 
 		object := scratch_objects[draw_start]

@@ -1,6 +1,6 @@
 package brender
-import "core:log"
 import "../third_party/vma"
+import "core:log"
 import vk "vendor:vulkan"
 
 @(private = "file")

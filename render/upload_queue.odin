@@ -1,9 +1,9 @@
 #+private
 package brender
+import bimage "../image"
 import "core:container/queue"
 import "core:slice"
 import vk "vendor:vulkan"
-import bimage "../image"
 
 Upload_Queue :: struct {
 	staging: Staging_Buffer,

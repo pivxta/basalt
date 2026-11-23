@@ -6,8 +6,8 @@ TRANSFORM_IDENTITY :: Transform {
 	rotation = 1,
 }
 
-AXIS_X :: [3]f32{1, 0, 0} 
-AXIS_Y :: [3]f32{0, 1, 0} 
+AXIS_X :: [3]f32{1, 0, 0}
+AXIS_Y :: [3]f32{0, 1, 0}
 AXIS_Z :: [3]f32{0, 0, 1}
 
 Transform :: struct {
@@ -53,11 +53,7 @@ transform_make :: proc(
 }
 
 transform_look_at :: proc(eye, target: [3]f32, up := [3]f32{0, 1, 0}) -> Transform {
-	return {
-		scale = 1,
-		rotation = linalg.quaternion_look_at(eye, target, up),
-		translation = eye,
-	}
+	return {scale = 1, rotation = linalg.quaternion_look_at(eye, target, up), translation = eye}
 }
 
 transform_look_to :: proc(eye, direction: [3]f32, up := [3]f32{0, 1, 0}) -> Transform {

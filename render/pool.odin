@@ -1,10 +1,10 @@
 #+private
 package brender
+import "../third_party/vma"
 import "base:runtime"
 import "core:log"
 import "core:math/bits"
 import "core:slice"
-import "../third_party/vma"
 import vk "vendor:vulkan"
 
 POOL_DEFAULT_ALIGNMENT :: 16

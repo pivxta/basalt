@@ -1,7 +1,7 @@
 package bwindow
+import "base:runtime"
 import "core:c"
 import "core:strings"
-import "base:runtime"
 import "vendor:glfw"
 import vk "vendor:vulkan"
 
@@ -69,10 +69,13 @@ Cursor_State :: enum {
 }
 
 create :: proc(
-	width, height: int, 
+	width, height: int,
 	title: string,
 	allocator := context.allocator,
-) -> (^Window, Error) {
+) -> (
+	^Window,
+	Error,
+) {
 	if glfw_users == 0 {
 		if !glfw.Init() {
 			return nil, .Library_Failure
@@ -102,9 +105,9 @@ create :: proc(
 	glfw.SetWindowIconifyCallback(window.handle, iconify_callback)
 	glfw.SetWindowMaximizeCallback(window.handle, maximize_callback)
 	glfw.SetWindowFocusCallback(window.handle, focus_callback)
-	glfw.SetWindowPosCallback(window.handle, pos_callback)	
-	glfw.SetWindowSizeCallback(window.handle, size_callback)	
-	glfw.SetFramebufferSizeCallback(window.handle, framebuffer_size_callback)	
+	glfw.SetWindowPosCallback(window.handle, pos_callback)
+	glfw.SetWindowSizeCallback(window.handle, size_callback)
+	glfw.SetFramebufferSizeCallback(window.handle, framebuffer_size_callback)
 	return window, nil
 }
 
@@ -112,7 +115,7 @@ destroy :: proc(window: ^Window) {
 	if window == nil {
 		return
 	}
-	
+
 	if window.handle != nil {
 		glfw.DestroyWindow(window.handle)
 
@@ -126,13 +129,7 @@ destroy :: proc(window: ^Window) {
 	free(window, window.allocator)
 }
 
-create_surface :: proc(
-	window: ^Window,
-	instance: vk.Instance,
-) -> (
-	vk.SurfaceKHR,
-	vk.Result,
-) {
+create_surface :: proc(window: ^Window, instance: vk.Instance) -> (vk.SurfaceKHR, vk.Result) {
 	assert(window != nil)
 	surface: vk.SurfaceKHR
 	result := glfw.CreateWindowSurface(instance, window.handle, nil, &surface)
@@ -313,21 +310,14 @@ get_events :: proc(window: ^Window) -> []Event {
 close_callback :: proc "cdecl" (handle: glfw.WindowHandle) {
 	window := cast(^Window)glfw.GetWindowUserPointer(handle)
 	context = window.ctx
-	append(&window.events, Close_Event {})
+	append(&window.events, Close_Event{})
 }
 
 @(private = "file")
-size_callback :: proc "cdecl" (
-	handle: glfw.WindowHandle,
-	width: c.int,
-	height: c.int,
-) {
+size_callback :: proc "cdecl" (handle: glfw.WindowHandle, width: c.int, height: c.int) {
 	window := cast(^Window)glfw.GetWindowUserPointer(handle)
 	context = window.ctx
-	append(&window.events, Resize_Event {
-		width = int(width),
-		height = int(height),
-	})
+	append(&window.events, Resize_Event{width = int(width), height = int(height)})
 }
 
 @(private = "file")
@@ -339,51 +329,35 @@ framebuffer_size_callback :: proc "cdecl" (
 	window := cast(^Window)glfw.GetWindowUserPointer(handle)
 	window.resized = true
 	context = window.ctx
-	append(&window.events, Framebuffer_Resize_Event {
-		width = int(width),
-		height = int(height),
-	})
+	append(&window.events, Framebuffer_Resize_Event{width = int(width), height = int(height)})
 }
 
 @(private = "file")
-pos_callback :: proc "cdecl" (
-	handle: glfw.WindowHandle,
-	x: c.int,
-	y: c.int,
-) {
+pos_callback :: proc "cdecl" (handle: glfw.WindowHandle, x: c.int, y: c.int) {
 	window := cast(^Window)glfw.GetWindowUserPointer(handle)
 	context = window.ctx
-	append(&window.events, Move_Event {
-		x = int(x),
-		y = int(y),
-	})
+	append(&window.events, Move_Event{x = int(x), y = int(y)})
 }
 
 @(private = "file")
 iconify_callback :: proc "cdecl" (handle: glfw.WindowHandle, iconified: c.int) {
 	window := cast(^Window)glfw.GetWindowUserPointer(handle)
 	context = window.ctx
-	append(&window.events, Minimize_Event {
-		minimized = bool(iconified),
-	})
+	append(&window.events, Minimize_Event{minimized = bool(iconified)})
 }
 
 @(private = "file")
 maximize_callback :: proc "cdecl" (handle: glfw.WindowHandle, maximized: c.int) {
 	window := cast(^Window)glfw.GetWindowUserPointer(handle)
 	context = window.ctx
-	append(&window.events, Maximize_Event {
-		maximized = bool(maximized),
-	})
+	append(&window.events, Maximize_Event{maximized = bool(maximized)})
 }
 
 @(private = "file")
 focus_callback :: proc "cdecl" (handle: glfw.WindowHandle, focused: c.int) {
 	window := cast(^Window)glfw.GetWindowUserPointer(handle)
 	context = window.ctx
-	append(&window.events, Focus_Event {
-		focused = bool(focused),
-	})
+	append(&window.events, Focus_Event{focused = bool(focused)})
 }
 
 cursor_state_to_glfw :: proc "contextless" (state: Cursor_State) -> c.int {

@@ -1,8 +1,8 @@
 package brender
+import bimage "../image"
 import "core:container/handle_map"
 import "core:slice"
 import vk "vendor:vulkan"
-import bimage "../image"
 
 Textures :: struct {
 	textures:             Bindless_Textures,

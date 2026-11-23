@@ -247,7 +247,7 @@ test :: proc(options: Test_Options) -> mem.Allocator_Error {
 	out_dir := filepath.join({project_dir, BUILD_OUT, "tests"}, context.temp_allocator) or_return
 
 	_ = os.make_directory_all(out_dir)
-	
+
 	test_packages := find_test_packages(project_dir) or_return
 	for test_package_dir in test_packages {
 		package_name := filepath.base(test_package_dir)

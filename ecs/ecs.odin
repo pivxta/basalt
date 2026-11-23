@@ -413,72 +413,72 @@ Query_Single_Error :: enum {
 }
 
 Query_1 :: struct($A: typeid) {
-	world:    ^World,
+	world:      ^World,
 	candidates: []Entity,
-	data:     []A,
-	iterated: int,
-	index:    int,
-	ended:    bool,
+	data:       []A,
+	iterated:   int,
+	index:      int,
+	ended:      bool,
 }
 
 Query_2 :: struct($A, $B: typeid) {
-	world:    ^World,
-	a:        ^Sparse_Set(A),
-	b:        ^Sparse_Set(B),
+	world:      ^World,
+	a:          ^Sparse_Set(A),
+	b:          ^Sparse_Set(B),
 	candidates: []Entity,
-	iterated: int,
-	index:    int,
-	ended:    bool,
+	iterated:   int,
+	index:      int,
+	ended:      bool,
 }
 
 Query_3 :: struct($A, $B, $C: typeid) {
-	world:    ^World,
-	a:        ^Sparse_Set(A),
-	b:        ^Sparse_Set(B),
-	c:        ^Sparse_Set(C),
+	world:      ^World,
+	a:          ^Sparse_Set(A),
+	b:          ^Sparse_Set(B),
+	c:          ^Sparse_Set(C),
 	candidates: []Entity,
-	iterated: int,
-	index:    int,
-	ended:    bool,
+	iterated:   int,
+	index:      int,
+	ended:      bool,
 }
 
 Query_4 :: struct($A, $B, $C, $D: typeid) {
-	world:    ^World,
-	a:        ^Sparse_Set(A),
-	b:        ^Sparse_Set(B),
-	c:        ^Sparse_Set(C),
-	d:        ^Sparse_Set(D),
+	world:      ^World,
+	a:          ^Sparse_Set(A),
+	b:          ^Sparse_Set(B),
+	c:          ^Sparse_Set(C),
+	d:          ^Sparse_Set(D),
 	candidates: []Entity,
-	iterated: int,
-	index:    int,
-	ended:    bool,
+	iterated:   int,
+	index:      int,
+	ended:      bool,
 }
 
 Query_5 :: struct($A, $B, $C, $D, $E: typeid) {
-	world:    ^World,
-	a:        ^Sparse_Set(A),
-	b:        ^Sparse_Set(B),
-	c:        ^Sparse_Set(C),
-	d:        ^Sparse_Set(D),
-	e:        ^Sparse_Set(E),
+	world:      ^World,
+	a:          ^Sparse_Set(A),
+	b:          ^Sparse_Set(B),
+	c:          ^Sparse_Set(C),
+	d:          ^Sparse_Set(D),
+	e:          ^Sparse_Set(E),
 	candidates: []Entity,
-	iterated: int,
-	index:    int,
-	ended:    bool,
+	iterated:   int,
+	index:      int,
+	ended:      bool,
 }
 
 Query_6 :: struct($A, $B, $C, $D, $E, $F: typeid) {
-	world:    ^World,
-	a:        ^Sparse_Set(A),
-	b:        ^Sparse_Set(B),
-	c:        ^Sparse_Set(C),
-	d:        ^Sparse_Set(D),
-	e:        ^Sparse_Set(E),
-	f:        ^Sparse_Set(F),
+	world:      ^World,
+	a:          ^Sparse_Set(A),
+	b:          ^Sparse_Set(B),
+	c:          ^Sparse_Set(C),
+	d:          ^Sparse_Set(D),
+	e:          ^Sparse_Set(E),
+	f:          ^Sparse_Set(F),
 	candidates: []Entity,
-	iterated: int,
-	index:    int,
-	ended:    bool,
+	iterated:   int,
+	index:      int,
+	ended:      bool,
 }
 
 query :: proc {
@@ -717,14 +717,7 @@ query_6 :: proc(
 	return query
 }
 
-query_single_1 :: proc(
-	world: ^World,
-	$A: typeid,
-) -> (
-	^A,
-	Entity,
-	Query_Single_Error,
-) {
+query_single_1 :: proc(world: ^World, $A: typeid) -> (^A, Entity, Query_Single_Error) {
 	query := query(world, A)
 	defer query_end(&query)
 
@@ -746,7 +739,8 @@ query_single_2 :: proc(
 	^B,
 	Entity,
 	Query_Single_Error,
-) where A != B {
+) where A !=
+	B {
 	query := query(world, A, B)
 	defer query_end(&query)
 
@@ -769,9 +763,12 @@ query_single_3 :: proc(
 	^C,
 	Entity,
 	Query_Single_Error,
-) where A != B,
-	A != C,
-	B != C {
+) where A !=
+	B,
+	A !=
+	C,
+	B !=
+	C {
 	query := query(world, A, B, C)
 	defer query_end(&query)
 
@@ -795,12 +792,18 @@ query_single_4 :: proc(
 	^D,
 	Entity,
 	Query_Single_Error,
-) where A != B,
-	A != C,
-	A != D,
-	B != C,
-	B != D,
-	C != D {
+) where A !=
+	B,
+	A !=
+	C,
+	A !=
+	D,
+	B !=
+	C,
+	B !=
+	D,
+	C !=
+	D {
 	query := query(world, A, B, C, D)
 	defer query_end(&query)
 
@@ -825,16 +828,26 @@ query_single_5 :: proc(
 	^E,
 	Entity,
 	Query_Single_Error,
-) where A != B,
-	A != C,
-	A != D,
-	A != E,
-	B != C,
-	B != D,
-	B != E,
-	C != D,
-	C != E,
-	D != E {
+) where A !=
+	B,
+	A !=
+	C,
+	A !=
+	D,
+	A !=
+	E,
+	B !=
+	C,
+	B !=
+	D,
+	B !=
+	E,
+	C !=
+	D,
+	C !=
+	E,
+	D !=
+	E {
 	query := query(world, A, B, C, D, E)
 	defer query_end(&query)
 
@@ -860,21 +873,36 @@ query_single_6 :: proc(
 	^F,
 	Entity,
 	Query_Single_Error,
-) where A != B,
-	A != C,
-	A != D,
-	A != E,
-	A != F,
-	B != C,
-	B != D,
-	B != E,
-	B != F,
-	C != D,
-	C != E,
-	C != F,
-	D != E,
-	D != F,
-	E != F {
+) where A !=
+	B,
+	A !=
+	C,
+	A !=
+	D,
+	A !=
+	E,
+	A !=
+	F,
+	B !=
+	C,
+	B !=
+	D,
+	B !=
+	E,
+	B !=
+	F,
+	C !=
+	D,
+	C !=
+	E,
+	C !=
+	F,
+	D !=
+	E,
+	D !=
+	F,
+	E !=
+	F {
 	query := query(world, A, B, C, D, E, F)
 	defer query_end(&query)
 
@@ -972,11 +1000,13 @@ query_1_next :: proc(query: ^Query_1($A)) -> (a: ^A, entity: Entity, index: int,
 	return a, entity, index, true
 }
 
-query_2_next :: proc(query: ^Query_2($A, $B)) -> (
+query_2_next :: proc(
+	query: ^Query_2($A, $B),
+) -> (
 	a: ^A,
 	b: ^B,
 	entity: Entity,
-	index: int, 
+	index: int,
 	ok: bool,
 ) {
 	if query.ended {
@@ -1003,12 +1033,14 @@ query_2_next :: proc(query: ^Query_2($A, $B)) -> (
 	return
 }
 
-query_3_next :: proc(query: ^Query_3($A, $B, $C)) -> (
+query_3_next :: proc(
+	query: ^Query_3($A, $B, $C),
+) -> (
 	a: ^A,
 	b: ^B,
 	c: ^C,
 	entity: Entity,
-	index: int, 
+	index: int,
 	ok: bool,
 ) {
 	if query.ended {

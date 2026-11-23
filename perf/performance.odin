@@ -52,13 +52,7 @@ collect_stats :: proc(data: ^Tracker) -> (Stats, bool) {
 	return stats, true
 }
 
-collect_stats_after :: proc(
-	data: ^Tracker,
-	interval_secs: f64,
-) -> (
-	Stats,
-	bool,
-) {
+collect_stats_after :: proc(data: ^Tracker, interval_secs: f64) -> (Stats, bool) {
 	time_since_clear := time.duration_seconds(time.tick_since(data.last_clear))
 	if time_since_clear >= interval_secs || interval_secs == 0.0 {
 		return collect_stats(data)

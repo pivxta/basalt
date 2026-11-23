@@ -1,8 +1,8 @@
 #+private
 package brender
+import "../third_party/vma"
 import "core:log"
 import "core:slice"
-import "../third_party/vma"
 import vk "vendor:vulkan"
 
 Texture :: struct {

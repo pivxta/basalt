@@ -1,8 +1,8 @@
 package binput
+import bwindow "../window"
 import "base:runtime"
 import "core:c"
 import "vendor:glfw"
-import bwindow "../window"
 
 Key :: enum {
 	Space,
@@ -156,15 +156,15 @@ Button_Action :: enum {
 	Repeated,
 }
 
-Modifiers :: bit_set[Modifier; i32]
+Modifiers :: bit_set[Modifier;i32]
 
 Modifier :: enum {
-	Shift = 0,
-	Control = 1,
-	Alt = 2,
-	Super = 3,
+	Shift     = 0,
+	Control   = 1,
+	Alt       = 2,
+	Super     = 3,
 	Caps_Lock = 4,
-	Num_Lock = 5,
+	Num_Lock  = 5,
 }
 
 Key_Event :: struct {
@@ -284,10 +284,7 @@ get_key :: proc(input: ^Input, key: Key) -> Button_States {
 	return result
 }
 
-get_mouse_button :: proc(
-	input: ^Input,
-	button: Mouse_Button,
-) -> Button_States {
+get_mouse_button :: proc(input: ^Input, button: Mouse_Button) -> Button_States {
 	assert(input != nil)
 
 	pressed := button in input.mouse_buttons_current
@@ -312,7 +309,7 @@ get_mouse_button :: proc(
 
 @(private = "file")
 reset_callback :: proc(input_raw: rawptr) {
-	input := cast(^Input)input_raw 
+	input := cast(^Input)input_raw
 	input.keys_previous = input.keys_current
 	input.mouse_buttons_previous = input.mouse_buttons_current
 	input.cursor_delta = {0, 0}
@@ -325,9 +322,7 @@ char_callback :: proc "cdecl" (handle: glfw.WindowHandle, codepoint: rune) {
 	window := cast(^bwindow.Window)glfw.GetWindowUserPointer(handle)
 	input := cast(^Input)window.input_ptr
 	context = window.ctx
-	append(&input.events, Text_Event { 
-		codepoint = codepoint,
-	})
+	append(&input.events, Text_Event{codepoint = codepoint})
 }
 
 @(private = "file")
@@ -360,11 +355,7 @@ key_callback :: proc "cdecl" (
 	}
 
 	context = window.ctx
-	append(&input.events, Key_Event {
-		modifiers = modifiers,
-		action = action,
-		key = key,
-	})
+	append(&input.events, Key_Event{modifiers = modifiers, action = action, key = key})
 }
 
 @(private = "file")
@@ -388,7 +379,7 @@ mouse_button_callback :: proc "cdecl" (
 	case glfw.RELEASE:
 		input.mouse_buttons_current &= ~{button}
 	}
-	
+
 	modifiers := modifiers_from_glfw(mods)
 	action, action_ok := button_action_from_glfw(action)
 	if !action_ok {
@@ -396,11 +387,10 @@ mouse_button_callback :: proc "cdecl" (
 	}
 
 	context = window.ctx
-	append(&input.events, Mouse_Button_Event {
-		modifiers = modifiers,
-		action = action,
-		button = button,
-	})
+	append(
+		&input.events,
+		Mouse_Button_Event{modifiers = modifiers, action = action, button = button},
+	)
 }
 
 @(private = "file")
@@ -408,16 +398,13 @@ cursor_callback :: proc "cdecl" (handle: glfw.WindowHandle, x: f64, y: f64) {
 	window := cast(^bwindow.Window)glfw.GetWindowUserPointer(handle)
 	input := cast(^Input)window.input_ptr
 
-	position := [2]f64 {x, y}
+	position := [2]f64{x, y}
 	delta := position - input.cursor_position
 	input.cursor_delta += delta
 	input.cursor_position = position
 
 	context = window.ctx
-	append(&input.events, Cursor_Move_Event {
-		position = position,
-		delta = delta,
-	})
+	append(&input.events, Cursor_Move_Event{position = position, delta = delta})
 }
 
 @(private = "file")
@@ -429,9 +416,7 @@ scroll_callback :: proc "cdecl" (handle: glfw.WindowHandle, x: f64, y: f64) {
 	input.scroll_delta.y += y
 
 	context = window.ctx
-	append(&input.events, Scroll_Event {
-		delta = {x, y},
-	})
+	append(&input.events, Scroll_Event{delta = {x, y}})
 }
 
 key_to_glfw :: proc "contextless" (key: Key) -> c.int {

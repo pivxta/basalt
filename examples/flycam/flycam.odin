@@ -1,17 +1,17 @@
 package flycam_example
+import becs "../../ecs"
+import bimage "../../image"
+import binput "../../input"
+import bmath "../../math"
+import bmesh "../../mesh"
+import bperf "../../perf"
 import brender "../../render"
 import bwindow "../../window"
-import binput "../../input"
-import becs "../../ecs"
-import bmath "../../math"
-import bperf "../../perf"
-import bimage "../../image"
-import bmesh "../../mesh"
 @(require) import "core:fmt"
-@(require) import "core:mem"
 import "core:log"
 import "core:math"
 import "core:math/linalg"
+@(require) import "core:mem"
 import "core:os"
 import "core:time"
 
@@ -28,11 +28,11 @@ Fly_Camera_Controls :: struct {
 }
 
 Fly_Camera :: struct {
-	velocity:         [3]f32,
-	yaw, pitch:       f32,
-	target_zoom:      f32,
-	zoom:             f32,
-	options:          Fly_Camera_Options,	
+	velocity:    [3]f32,
+	yaw, pitch:  f32,
+	target_zoom: f32,
+	zoom:        f32,
+	options:     Fly_Camera_Options,
 }
 
 Fly_Camera_Options :: struct {
@@ -135,22 +135,16 @@ main :: proc() {
 	becs.insert_resource(world, default_flycam_controls())
 	becs.insert_resource(world, brender.Clear_Color({0.3, 0.6, 1.0, 1.0}))
 	becs.spawn(
-		world, 
+		world,
 		bmath.TRANSFORM_IDENTITY,
-		brender.Camera{}, 
+		brender.Camera{},
 		Fly_Camera{options = default_flycam_options()},
 	)
-	becs.spawn(world, brender.Ambient_Light {
-		color = {0.3, 0.6, 1.0},
-		illuminance = 1.0,
-	})
+	becs.spawn(world, brender.Ambient_Light{color = {0.3, 0.6, 1.0}, illuminance = 1.0})
 	becs.spawn(
-		world, 
+		world,
 		bmath.transform_look_to({}, {0.4, -1.0, 0.2}),
-		brender.Directional_Light {
-			color = {1.0, 1.0, 1.0}, 
-			illuminance = 2.0,
-		},
+		brender.Directional_Light{color = {1.0, 1.0, 1.0}, illuminance = 2.0},
 	)
 	becs.spawn(
 		world,
@@ -288,31 +282,31 @@ update_flycam :: proc(world: ^becs.World, dt: f32) {
 	}
 
 	transform.translation += flycam.velocity * dt
-	flycam.zoom = linalg.lerp(flycam.zoom, flycam.target_zoom, min(flycam.options.zoom_speed * dt, 1.0))
+	flycam.zoom = linalg.lerp(
+		flycam.zoom,
+		flycam.target_zoom,
+		min(flycam.options.zoom_speed * dt, 1.0),
+	)
 }
 
 update_camera :: proc(world: ^becs.World) {
 	flycam, camera, transform, _, err := becs.query_single(
-		world, 
-		Fly_Camera, 
-		brender.Camera, 
+		world,
+		Fly_Camera,
+		brender.Camera,
 		bmath.Transform,
 	)
 	if err != nil {
 		return
 	}
 
-	transform.rotation = linalg.quaternion_from_euler_angles(
-		flycam.yaw,
-		flycam.pitch,
-		0.0,
-		.YXZ,
-	)
+	transform.rotation = linalg.quaternion_from_euler_angles(flycam.yaw, flycam.pitch, 0.0, .YXZ)
 
 	switch &p in camera.projection {
 	case bmath.Orthographic_Projection:
 	case bmath.Perspective_Projection:
-		fov := 2 * math.atan(math.tan(flycam.options.base_fov_radians * 0.5) / math.exp(flycam.zoom))
+		fov :=
+			2 * math.atan(math.tan(flycam.options.base_fov_radians * 0.5) / math.exp(flycam.zoom))
 		max_fov := math.to_radians_f32(140.0)
 		p.fov_radians = min(fov, max_fov)
 	}

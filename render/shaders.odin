@@ -1,10 +1,10 @@
 package brender
+import "../bindings/slang"
 import "base:runtime"
 import "core:fmt"
 import "core:log"
 import "core:slice"
 import "core:strings"
-import "../bindings/slang"
 import vk "vendor:vulkan"
 
 Shader_Program_Id :: distinct u32

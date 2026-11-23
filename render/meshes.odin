@@ -1,7 +1,7 @@
 package brender
+import bmesh "../mesh"
 import "core:container/handle_map"
 import "core:container/queue"
-import bmesh "../mesh"
 
 Mesh_Handle :: distinct handle_map.Handle64
 

@@ -1,7 +1,7 @@
 package brender
+import bwindow "../window"
 import "base:runtime"
 import vk "vendor:vulkan"
-import bwindow "../window"
 
 Swapchain :: struct {
 	handle:                 vk.SwapchainKHR,
@@ -234,7 +234,13 @@ pick_present_mode :: proc(modes: []vk.PresentModeKHR) -> vk.PresentModeKHR {
 }
 
 @(private = "file")
-pick_extent :: proc(caps: vk.SurfaceCapabilitiesKHR, window: ^bwindow.Window) -> (vk.Extent2D, bool) {
+pick_extent :: proc(
+	caps: vk.SurfaceCapabilitiesKHR,
+	window: ^bwindow.Window,
+) -> (
+	vk.Extent2D,
+	bool,
+) {
 	extent := caps.currentExtent
 	if extent.width == max(u32) {
 		width, height := bwindow.get_framebuffer_size(window)

@@ -1,7 +1,7 @@
 package brender
+import bwindow "../window"
 import "base:runtime"
 import vk "vendor:vulkan"
-import bwindow "../window"
 
 Surface :: struct {
 	window:  ^bwindow.Window,

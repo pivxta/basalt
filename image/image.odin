@@ -45,11 +45,7 @@ make_empty :: proc(
 	image.width = width
 	image.height = height
 	image.allocator = allocator
-	image.bytes = make(
-		[]byte,
-		width * height * get_format_texel_size(format),
-		allocator,
-	) or_return
+	image.bytes = make([]byte, width * height * get_format_texel_size(format), allocator) or_return
 	return
 }
 

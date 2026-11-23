@@ -4,4 +4,4 @@
   "enable_hover": true,
   "enable_snippets": true,
   "checker_args": "-vet -strict-style -disallow-do -warnings-as-errors"
-
+}

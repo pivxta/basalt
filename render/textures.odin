@@ -302,7 +302,7 @@ create_texture :: proc(
 		device,
 		type = .D2,
 		usage = {.TRANSFER_DST, .TRANSFER_SRC, .SAMPLED},
-		format = bimage.format_to_vk(image.format, srgb = options.colorspace == .Srgb),
+		format = image_format_to_vk(image.format, options.colorspace),
 		extent = {u32(image.width), u32(image.height), 1},
 		mip_levels = u32(options.mip_levels.? or_else bimage.get_max_mip_levels(image)),
 	) or_return

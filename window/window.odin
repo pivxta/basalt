@@ -20,7 +20,8 @@ Window :: struct {
 }
 
 Error :: enum {
-	Library_Init_Failure,
+	None = 0,
+	Library_Failure,
 	Creation_Failure,
 }
 
@@ -74,7 +75,7 @@ create :: proc(
 ) -> (^Window, Error) {
 	if glfw_users == 0 {
 		if !glfw.Init() {
-			return nil, .Library_Init_Failure
+			return nil, .Library_Failure
 		}
 	}
 	glfw_users += 1
@@ -111,7 +112,7 @@ destroy :: proc(window: ^Window) {
 	if window == nil {
 		return
 	}
-
+	
 	if window.handle != nil {
 		glfw.DestroyWindow(window.handle)
 
@@ -317,11 +318,11 @@ close_callback :: proc "cdecl" (handle: glfw.WindowHandle) {
 
 @(private = "file")
 size_callback :: proc "cdecl" (
-	window: glfw.WindowHandle,
+	handle: glfw.WindowHandle,
 	width: c.int,
 	height: c.int,
 ) {
-	window := cast(^Window)glfw.GetWindowUserPointer(window)
+	window := cast(^Window)glfw.GetWindowUserPointer(handle)
 	context = window.ctx
 	append(&window.events, Resize_Event {
 		width = int(width),
@@ -331,11 +332,11 @@ size_callback :: proc "cdecl" (
 
 @(private = "file")
 framebuffer_size_callback :: proc "cdecl" (
-	window: glfw.WindowHandle,
+	handle: glfw.WindowHandle,
 	width: c.int,
 	height: c.int,
 ) {
-	window := cast(^Window)glfw.GetWindowUserPointer(window)
+	window := cast(^Window)glfw.GetWindowUserPointer(handle)
 	window.resized = true
 	context = window.ctx
 	append(&window.events, Framebuffer_Resize_Event {
@@ -346,11 +347,11 @@ framebuffer_size_callback :: proc "cdecl" (
 
 @(private = "file")
 pos_callback :: proc "cdecl" (
-	window: glfw.WindowHandle,
+	handle: glfw.WindowHandle,
 	x: c.int,
 	y: c.int,
 ) {
-	window := cast(^Window)glfw.GetWindowUserPointer(window)
+	window := cast(^Window)glfw.GetWindowUserPointer(handle)
 	context = window.ctx
 	append(&window.events, Move_Event {
 		x = int(x),
@@ -359,8 +360,8 @@ pos_callback :: proc "cdecl" (
 }
 
 @(private = "file")
-iconify_callback :: proc "cdecl" (window: glfw.WindowHandle, iconified: c.int) {
-	window := cast(^Window)glfw.GetWindowUserPointer(window)
+iconify_callback :: proc "cdecl" (handle: glfw.WindowHandle, iconified: c.int) {
+	window := cast(^Window)glfw.GetWindowUserPointer(handle)
 	context = window.ctx
 	append(&window.events, Minimize_Event {
 		minimized = bool(iconified),
@@ -368,8 +369,8 @@ iconify_callback :: proc "cdecl" (window: glfw.WindowHandle, iconified: c.int) {
 }
 
 @(private = "file")
-maximize_callback :: proc "cdecl" (window: glfw.WindowHandle, maximized: c.int) {
-	window := cast(^Window)glfw.GetWindowUserPointer(window)
+maximize_callback :: proc "cdecl" (handle: glfw.WindowHandle, maximized: c.int) {
+	window := cast(^Window)glfw.GetWindowUserPointer(handle)
 	context = window.ctx
 	append(&window.events, Maximize_Event {
 		maximized = bool(maximized),
@@ -377,8 +378,8 @@ maximize_callback :: proc "cdecl" (window: glfw.WindowHandle, maximized: c.int) 
 }
 
 @(private = "file")
-focus_callback :: proc "cdecl" (window: glfw.WindowHandle, focused: c.int) {
-	window := cast(^Window)glfw.GetWindowUserPointer(window)
+focus_callback :: proc "cdecl" (handle: glfw.WindowHandle, focused: c.int) {
+	window := cast(^Window)glfw.GetWindowUserPointer(handle)
 	context = window.ctx
 	append(&window.events, Focus_Event {
 		focused = bool(focused),

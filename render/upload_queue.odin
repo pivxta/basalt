@@ -223,7 +223,7 @@ upload_texture :: proc(
 	ok: bool,
 ) {
 	assert(bimage.is_valid(image))
-	assert(bimage.format_matches_vk(image.format, texture.format))
+	assert(image_format_matches_vk(image.format, texture.format))
 
 	assert(texture.extent.depth == 1)
 	assert(texture.extent.width == u32(image.width))

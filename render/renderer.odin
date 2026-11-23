@@ -44,6 +44,7 @@ Draw_Error :: enum {
 	Texture_Acquisition_Failed,
 	Presentation_Failed,
 	Out_Of_Scratch_Memory,
+	No_Camera,
 }
 
 Error :: union #shared_nil {
@@ -555,6 +556,7 @@ draw :: proc(renderer: ^Renderer, world: ^becs.World) -> Error {
 		renderer.frame_ring,
 	)
 
+	check_camera(world) or_return
 	frame_context := frame_begin(&renderer.frame_ring, renderer.device) or_return
 	frame_data, ok := write_frame_data(renderer, frame_context, world)
 	if !ok {
@@ -644,6 +646,19 @@ reconfigure_targets :: proc(r: ^Renderer) -> Error {
 }
 
 @(require_results)
+check_camera :: proc(world: ^becs.World) -> Draw_Error {
+	_, _, _, err := becs.query_single(world, Camera, bmath.Transform)
+	#partial switch err {
+	case .Multiple_Found:
+		log.errorf("The current world has multiple cameras, this is not supported yet")
+	case .None_Found:
+		log.errorf("The current world has no cameras or camera has no transform component")
+		return .No_Camera
+	}
+	return nil
+}
+
+@(require_results)
 write_frame_data :: proc(
 	renderer: ^Renderer,
 	frame: Frame_Context,
@@ -654,25 +669,21 @@ write_frame_data :: proc(
 ) {
 	width := int(renderer.swapchain.extent.width)
 	height := int(renderer.swapchain.extent.height)
-	camera, camera_transform, _, camera_err := becs.query_single(world, Camera, bmath.Transform)
-	#partial switch camera_err {
-	case .Multiple_Found:
-		log.errorf("The current world has multiple cameras, this is not supported yet")
-	case .None_Found:
-		log.errorf("The current world has no cameras or camera has no transform component")
-	}
+	camera, camera_transform, _, _ := becs.query_single(world, Camera, bmath.Transform)
+	data.view = scratch_new_clone(
+		frame.scratch, 
+		View_Data {
+			position      = camera_transform.translation,
+			world_to_clip = get_world_to_clip_matrix(
+				camera^, 
+				camera_transform^,
+				width, 
+				height,
+			),
+		},
+	) or_return
 
-	view := View_Data {
-		position      = camera_transform.translation,
-		world_to_clip = get_world_to_clip_matrix(
-			camera^, 
-			camera_transform^,
-			width, 
-			height,
-		),
-	}
-	data.view = scratch_new_clone(frame.scratch, view) or_return
-
+	point_light_count := u32(0)
 	point_light_query := becs.query(world, bmath.Transform, Point_Light)
 	point_lights := scratch_make(
 		frame.scratch,
@@ -682,6 +693,7 @@ write_frame_data :: proc(
 	) or_return
 
 	for transform, point_light, _, i in becs.query_next(&point_light_query) {
+		point_light_count += 1
 		point_lights.data[i] = {
 			position = transform.translation,
 			radius   = point_light.radius,
@@ -690,6 +702,7 @@ write_frame_data :: proc(
 		}
 	}
 
+	dir_light_count := u32(0)
 	dir_light_query := becs.query(world, bmath.Transform, Directional_Light)
 	dir_lights := scratch_make(
 		frame.scratch,
@@ -699,6 +712,7 @@ write_frame_data :: proc(
 	) or_return
 
 	for transform, dir_light, _, i in becs.query_next(&dir_light_query) {
+		dir_light_count += 1
 		dir_lights.data[i] = {
 			direction   = bmath.transform_forward(transform^),
 			illuminance = dir_light.illuminance,
@@ -711,13 +725,15 @@ write_frame_data :: proc(
 		log.warnf("The current world has multiple ambient lights")
 	}
 
+	ambient_color := ambient_light.color if ambient_light != nil else 0
+	ambient_illuminance := ambient_light.illuminance if ambient_light != nil else 0
 	lighting := Lighting_Data {
-		ambient_color        = ambient_light.color,
-		ambient_illuminance  = ambient_light.illuminance,
+		ambient_color        = ambient_color,
+		ambient_illuminance  = ambient_illuminance,
 		point_lights_address = point_lights.address,
-		point_light_count    = u32(len(point_lights.data)),
+		point_light_count    = point_light_count,
 		dir_lights_address   = dir_lights.address,
-		dir_light_count      = u32(len(dir_lights.data)),
+		dir_light_count      = dir_light_count,
 	}
 	data.lighting = scratch_new_clone(frame.scratch, lighting) or_return
 

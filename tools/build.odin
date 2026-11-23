@@ -244,32 +244,70 @@ clean_tests :: proc() -> mem.Allocator_Error {
 
 test :: proc(options: Test_Options) -> mem.Allocator_Error {
 	project_dir := filepath.join({#directory, ".."}, context.temp_allocator) or_return
-
 	out_dir := filepath.join({project_dir, BUILD_OUT, "tests"}, context.temp_allocator) or_return
-	out_path := filepath.join({out_dir, "tests"}, context.temp_allocator) or_return
-	when ODIN_OS == .Windows {
-		out_path = fmt.tprintf("%s.exe", out_path)
-	}
 
 	_ = os.make_directory_all(out_dir)
-
-	args := make([dynamic]string, context.temp_allocator)
-	append(&args, "odin", "test", project_dir)
-	if len(options.names) > 0 {
-		names := make([dynamic]string, context.temp_allocator)
-		for name in options.names {
-			append(&names, fmt.tprintf("basalt.%s", name))
+	
+	test_packages := find_test_packages(project_dir) or_return
+	for test_package_dir in test_packages {
+		package_name := filepath.base(test_package_dir)
+		out_path := filepath.join({out_dir, package_name}, context.temp_allocator) or_return
+		when ODIN_OS == .Windows {
+			out_path = fmt.tprintf("%s.exe", out_path)
 		}
-		joined_names := strings.join(names[:], ",", context.temp_allocator)
-		append(&args, fmt.tprintf("-define:ODIN_TEST_NAMES=%s", joined_names))
-	}
-	append(&args, "-debug", "-vet", "-strict-style", "-disallow-do", "-warnings-as-errors")
-	append(&args, fmt.tprintf("-out:%s", out_path))
-	append_toggle_define(&args, "ENABLE_VALIDATION", .on)
-	append_toggle_define(&args, "ENABLE_SYNC_VALIDATION", .on)
-	append_vulkan_sdk_link_flags(&args)
 
-	run(args[:])
+		args := make([dynamic]string, context.temp_allocator)
+		append(&args, "odin", "test", test_package_dir)
+		if len(options.names) > 0 {
+			joined_names := strings.join(options.names[:], ",", context.temp_allocator)
+			append(&args, fmt.tprintf("-define:ODIN_TEST_NAMES=%s", joined_names))
+		}
+		append(&args, "-debug", "-vet", "-strict-style", "-disallow-do", "-warnings-as-errors")
+		append(&args, fmt.tprintf("-out:%s", out_path))
+		append_vulkan_sdk_link_flags(&args)
+
+		fmt.eprintfln("Testing package '%v'", package_name)
+		run(args[:])
+	}
+	return nil
+}
+
+find_test_packages :: proc(root: string) -> (packages: [dynamic]string, err: mem.Allocator_Error) {
+	packages = make([dynamic]string, context.temp_allocator)
+	collect_test_packages(root, &packages) or_return
+	return packages, nil
+}
+
+@(private = "file")
+collect_test_packages :: proc(dir: string, packages: ^[dynamic]string) -> mem.Allocator_Error {
+	files, err := os.read_all_directory_by_path(dir, context.temp_allocator)
+	if err != nil {
+		fmt.eprintfln("Failed to read directory '%s': %v", dir, err)
+		os.exit(1)
+	}
+
+	has_tests := false
+	for file in files {
+		#partial switch file.type {
+		case .Directory:
+			if strings.has_prefix(file.name, ".") {
+				continue
+			}
+			switch file.name {
+			case "third_party", BUILD_OUT:
+				continue
+			}
+			collect_test_packages(file.fullpath, packages) or_return
+		case .Regular:
+			if strings.has_suffix(file.name, "_test.odin") {
+				has_tests = true
+			}
+		}
+	}
+
+	if has_tests {
+		append(packages, dir) or_return
+	}
 	return nil
 }
 

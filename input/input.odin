@@ -215,6 +215,7 @@ Input :: struct {
 
 create :: proc(window: ^bwindow.Window, allocator := context.allocator) -> ^Input {
 	assert(window != nil)
+	assert(window.input_ptr == nil, "Window already has an input observer attached to it")
 
 	input := new(Input, allocator)
 	input.events = make([dynamic]Event, allocator)
@@ -227,7 +228,6 @@ create :: proc(window: ^bwindow.Window, allocator := context.allocator) -> ^Inpu
 	glfw.SetScrollCallback(window.handle, scroll_callback)
 	glfw.SetCharCallback(window.handle, char_callback)
 
-	assert(window.input_ptr == nil, "Window already has an input observer attached to it")
 	window.input_reset_callback = reset_callback
 	window.input_ptr = rawptr(input)
 	return input
@@ -244,6 +244,7 @@ destroy :: proc(input: ^Input) {
 	glfw.SetMouseButtonCallback(input.registered_window.handle, nil)
 	glfw.SetCursorPosCallback(input.registered_window.handle, nil)
 	glfw.SetScrollCallback(input.registered_window.handle, nil)
+	glfw.SetCharCallback(input.registered_window.handle, nil)
 	delete(input.events)
 	free(input, input.allocator)
 }

@@ -116,6 +116,7 @@ destroy :: proc(window: ^Window) {
 		return
 	}
 
+	assert(window.input_ptr == nil, "Window with attached input is being destroyed")
 	if window.handle != nil {
 		glfw.DestroyWindow(window.handle)
 

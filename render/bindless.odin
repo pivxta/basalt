@@ -7,13 +7,13 @@ import "core:container/handle_map"
 
 Sampler_Desc :: struct {
 	address_mode: vk.SamplerAddressMode,
-	mag_filter:   vk.Filter,
+	filter:   vk.Filter,
 	border_color: vk.BorderColor,
 	compare:      Maybe(vk.CompareOp),
 }
 
 Sampler_Globals :: struct {
-	min_filter:     vk.Filter,
+	min_filter:     Maybe(vk.Filter),
 	mipmap_mode:    vk.SamplerMipmapMode,
 	max_anisotropy: Maybe(f32),
 	min_lod:        f32,
@@ -70,7 +70,7 @@ bindless_samplers_init :: proc(
 	samplers: ^Bindless_Samplers($E),
 	device: Device,
 	descs: [E]Sampler_Desc,
-	globals: Maybe(Sampler_Globals) = nil,
+	globals: Sampler_Globals,
 ) -> (
 	result: vk.Result,
 ) {
@@ -87,9 +87,8 @@ bindless_samplers_init :: proc(
 		samplers.descriptor_set_layout,
 	) or_return
 
-	sampler_globals := globals.? or_else default_sampler_globals()
-	samplers.samplers = create_samplers(device, descs, sampler_globals) or_return
-	samplers.globals = sampler_globals
+	samplers.samplers = create_samplers(device, descs, globals) or_return
+	samplers.globals = globals
 	samplers.descs = descs
 	write_samplers(device, samplers.descriptor_set, samplers.samplers)
 	return
@@ -144,8 +143,8 @@ create_samplers :: proc(
 		anisotropy = clamp(anisotropy, 1.0, device.properties.limits.maxSamplerAnisotropy)
 		sampler_info := vk.SamplerCreateInfo {
 			sType            = .SAMPLER_CREATE_INFO,
-			magFilter        = desc.mag_filter,
-			minFilter        = globals.min_filter,
+			magFilter        = desc.filter,
+			minFilter        = globals.min_filter.? or_else desc.filter,
 			mipmapMode       = globals.mipmap_mode,
 			addressModeU     = desc.address_mode,
 			addressModeV     = desc.address_mode,

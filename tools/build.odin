@@ -33,8 +33,8 @@ Build_Deps_Options :: struct {
 }
 
 Test_Options :: struct {
-	names: [dynamic]string `args:"pos=0,variadic" usage:"Run specific test."`,
-	clean: bool `usage:"Clean test binaries."`,
+	overflow: [dynamic]string `usage:"Tests to run, as package.test_name (all if none are given)."`,
+	clean:    bool `usage:"Clean test binaries."`,
 }
 
 Clean_Options :: struct {}
@@ -52,7 +52,7 @@ main :: proc() {
 		flags.parse_or_exit(&options, sub_args, .Odin)
 		if options.clean {
 			catch_alloc_err(clean_tests())
-			if len(options.names) > 0 {
+			if len(options.overflow) > 0 {
 				catch_alloc_err(build_vma())
 				catch_alloc_err(test(options))
 			}
@@ -258,8 +258,8 @@ test :: proc(options: Test_Options) -> mem.Allocator_Error {
 
 		args := make([dynamic]string, context.temp_allocator)
 		append(&args, "odin", "test", test_package_dir)
-		if len(options.names) > 0 {
-			joined_names := strings.join(options.names[:], ",", context.temp_allocator)
+		if len(options.overflow) > 0 {
+			joined_names := strings.join(options.overflow[:], ",", context.temp_allocator)
 			append(&args, fmt.tprintf("-define:ODIN_TEST_NAMES=%s", joined_names))
 		}
 		append(&args, "-debug", "-vet", "-strict-style", "-disallow-do", "-warnings-as-errors")

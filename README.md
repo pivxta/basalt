@@ -112,7 +112,7 @@ Run all tests, or only the ones you name:
 
 ```sh
 ./build.sh test
-./build.sh test test_spawn_and_get test_resources
+./build.sh test becs.test_spawn_and_get becs.test_resources
 ```
 
 Remove the test binaries:
